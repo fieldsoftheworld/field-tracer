@@ -31,27 +31,36 @@ async function challenge(verifier: string): Promise<string> {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export async function beginOsmLogin(): Promise<void> {
+export async function beginOsmLogin(): Promise<string> {
   const configuredClientId = clientId();
   if (!configuredClientId) throw new Error("Set VITE_OSM_CLIENT_ID before enabling OSM login.");
   const verifier = randomString(32);
+  const state = randomString(16);
   sessionStorage.setItem("field-tracer-osm-verifier", verifier);
+  sessionStorage.setItem("field-tracer-osm-state", state);
   const params = new URLSearchParams({
     response_type: "code",
     client_id: configuredClientId,
     redirect_uri: redirectUri(),
     scope: "openid read_prefs write_api",
+    state,
     code_challenge: await challenge(verifier),
     code_challenge_method: "S256",
   });
-  window.location.assign(`${apiBase()}/oauth2/authorize?${params.toString()}`);
+  return `${apiBase()}/oauth2/authorize?${params.toString()}`;
 }
 
-export async function completeOsmLogin(): Promise<OsmSession | undefined> {
-  const code = new URLSearchParams(window.location.search).get("code");
+export async function completeOsmLogin(search = window.location.search): Promise<OsmSession | undefined> {
+  const params = new URLSearchParams(search);
+  const code = params.get("code");
+  const returnedState = params.get("state");
   const verifier = sessionStorage.getItem("field-tracer-osm-verifier");
+  const expectedState = sessionStorage.getItem("field-tracer-osm-state");
   const configuredClientId = clientId();
-  if (!code || !verifier || !configuredClientId) return undefined;
+  if (!code || !verifier || !configuredClientId || !returnedState || returnedState !== expectedState) {
+    if (params.has("error")) throw new Error(params.get("error_description") ?? "OSM login was not completed.");
+    return undefined;
+  }
 
   const response = await fetch(`${apiBase()}/oauth2/token`, {
     method: "POST",
@@ -68,6 +77,7 @@ export async function completeOsmLogin(): Promise<OsmSession | undefined> {
   const payload = (await response.json()) as { access_token?: string };
   if (!payload.access_token) throw new Error("OSM did not return an access token.");
   sessionStorage.removeItem("field-tracer-osm-verifier");
+  sessionStorage.removeItem("field-tracer-osm-state");
   window.history.replaceState({}, "", window.location.pathname);
   return { accessToken: payload.access_token, apiBase: apiBase() };
 }

@@ -69,7 +69,9 @@ describe("field geometry", () => {
       "outside-field",
     );
 
-    expect(validateField(field, task, emptyFields)).toContain("polygon is outside the task boundary");
+    expect(validateField(field, task, emptyFields)).toContain(
+      "every polygon corner must stay inside the task boundary",
+    );
   });
 
   test("rejects a field overlapping an existing campaign field", () => {

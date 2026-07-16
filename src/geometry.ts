@@ -51,7 +51,10 @@ export function validateField(feature: FieldFeature, task: TaskContext, existing
   const edge = shortestEdgeM(ring);
   if (area < MIN_AREA_M2) errors.push(`area ${Math.round(area)} m² is below ${MIN_AREA_M2} m²`);
   if (edge < MIN_EDGE_M) errors.push(`shortest edge ${Math.round(edge)} m is below ${MIN_EDGE_M} m`);
-  if (!pointInRing(ring[0], task.boundary.geometry.coordinates[0])) errors.push("polygon is outside the task boundary");
+  const taskRing = task.boundary.geometry.coordinates[0];
+  if (ring.slice(0, -1).some((point) => !pointInRing(point, taskRing))) {
+    errors.push("every polygon corner must stay inside the task boundary");
+  }
   if (
     existing.features.some(
       (candidate) =>

@@ -18,11 +18,58 @@ test.describe("Field Tracer editor", () => {
     const drawButton = page.getByRole("button", { name: "Draw field polygon" });
     await drawButton.click();
     await expect(page.getByRole("button", { name: "Drawing field…" })).toBeVisible();
-    await expect(page.getByText("0 points · double-click to close")).toBeVisible();
+    await expect(page.getByText("0 points · click Undo point or press ⌘/Ctrl+Z")).toBeVisible();
 
     await page.getByRole("button", { name: "Drawing field…" }).click();
     await expect(page.getByRole("button", { name: "Draw field polygon" })).toBeVisible();
     await expect(page.getByText("Click around a field. Double-click to close it.")).toBeVisible();
+  });
+
+  test("undoes a point and cancels the current polygon", async ({ page }) => {
+    await page.getByRole("button", { name: "Draw field polygon" }).click();
+    const map = page.locator("#map .maplibregl-canvas");
+    const box = await map.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(page.getByRole("button", { name: "Undo point" })).toBeEnabled();
+    await expect(page.getByText("1 points · click Undo point or press ⌘/Ctrl+Z")).toBeVisible();
+
+    await page.getByRole("button", { name: "Undo point" }).click();
+    await expect(page.getByText("0 points · click Undo point or press ⌘/Ctrl+Z")).toBeVisible();
+
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByText("Click around a field. Double-click to close it.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Undo point" })).toBeDisabled();
+  });
+
+  test("exposes safe field recovery controls", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Remove selected field" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Undo last field" })).toBeDisabled();
+    await expect(page.getByText("None selected")).toBeVisible();
+  });
+
+  test("opens the concise labeling guide and imagery checklist", async ({ page }) => {
+    await page.getByRole("button", { name: "Open labeling guide" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Make the field call");
+    await expect(page.getByRole("dialog")).toContainText("Does time agree?");
+    await page.getByRole("button", { name: "Close labeling guide" }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await expect(page.getByLabel("Compared a second time window")).toBeVisible();
+  });
+
+  test("browses the interactive workflow and visual examples", async ({ page }) => {
+    await page.getByRole("button", { name: "Open labeling guide" }).click();
+    await expect(page.getByRole("button", { name: "1 Is it managed?" })).toBeVisible();
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByRole("heading", { name: "Does time agree?" })).toBeVisible();
+    await page.getByRole("tab", { name: "Visual examples" }).click();
+    await expect(page.getByRole("button", { name: "All examples" })).toBeVisible();
+    await expect(page.getByAltText(/A difficult boundary/)).toBeVisible();
+    await page.getByRole("button", { name: "Imagery", exact: true }).click();
+    await expect(page.getByAltText(/Use NIR for subtle edges/)).toBeVisible();
   });
 
   test("rejects an undersized polygon before upload", async ({ page }) => {

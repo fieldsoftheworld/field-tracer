@@ -52,35 +52,38 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
       type: "line",
       source: sourceId,
       filter: ["==", ["get", "kind"], "task"],
-      paint: { "line-color": "#f1b75c", "line-width": 3, "line-dasharray": [2, 1] },
+      paint: { "line-color": "#c0d85b", "line-width": 3, "line-dasharray": [2, 1] },
     });
     map.addLayer({
       id: "task-fill",
       type: "fill",
       source: sourceId,
       filter: ["==", ["get", "kind"], "task"],
-      paint: { "fill-color": "#e5a853", "fill-opacity": 0.08 },
+      paint: { "fill-color": "#c0d85b", "fill-opacity": 0.1 },
     });
     map.addLayer({
       id: fieldLayerId,
       type: "fill",
       source: sourceId,
       filter: ["==", ["get", "kind"], "field"],
-      paint: { "fill-color": "#d85b37", "fill-opacity": 0.44 },
+      paint: { "fill-color": "#22a070", "fill-opacity": 0.42 },
     });
     map.addLayer({
       id: fieldLineId,
       type: "line",
       source: sourceId,
       filter: ["==", ["get", "kind"], "field"],
-      paint: { "line-color": "#ffd08a", "line-width": 2 },
+      paint: {
+        "line-color": ["case", ["boolean", ["get", "selected"], false], "#ff7f41", "#c0d85b"],
+        "line-width": ["case", ["boolean", ["get", "selected"], false], 4, 2],
+      },
     });
     map.addSource("draft", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
       id: draftLayerId,
       type: "line",
       source: "draft",
-      paint: { "line-color": "#fff0c2", "line-width": 3, "line-dasharray": [1, 1] },
+      paint: { "line-color": "#b5e1e6", "line-width": 3, "line-dasharray": [1, 1] },
     });
     setTaskData(map, task, []);
   });
@@ -90,11 +93,23 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
   return map;
 }
 
-export function setTaskData(map: MapLibreMap, task: TaskContext, fields: FieldFeature[]): void {
+export function setTaskData(
+  map: MapLibreMap,
+  task: TaskContext,
+  fields: FieldFeature[],
+  selectedFieldId?: string,
+): void {
   const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
   if (!source) return;
   const taskFeature: Feature<Polygon, { kind: string }> = { ...task.boundary, properties: { kind: "task" } };
-  const fieldFeatures = fields.map((field) => ({ ...field, properties: { ...field.properties, kind: "field" } }));
+  const fieldFeatures = fields.map((field) => ({
+    ...field,
+    properties: {
+      ...field.properties,
+      kind: "field",
+      selected: field.properties.id === selectedFieldId,
+    },
+  }));
   source.setData({ type: "FeatureCollection", features: [taskFeature, ...fieldFeatures] });
 }
 

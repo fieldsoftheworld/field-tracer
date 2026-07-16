@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#17130f" />
+    <meta name="theme-color" content="#004747" />
     <meta name="description" content="Human annotation of annual crop field boundaries." />
     <title>Field Tracer · Annual crop boundaries</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <main class="viewport">
@@ -44,13 +44,41 @@
         <div class="section-rule"></div>
         <p class="eyebrow">Draw</p>
         <button type="button" class="btn-primary btn-wide" id="draw-button">Draw field polygon</button>
-        <button type="button" class="btn-quiet btn-wide" id="finish-button" disabled>Finish current polygon</button>
+        <div class="draw-actions">
+          <button type="button" class="btn-quiet" id="undo-point-button" disabled>Undo point</button>
+          <button type="button" class="btn-quiet" id="cancel-draft-button" disabled>Cancel</button>
+        </div>
+        <button type="button" class="btn-secondary btn-wide" id="finish-button" disabled>Finish current polygon</button>
         <p class="hint" id="draw-hint">Click around a field. Double-click to close it.</p>
+
+        <div class="edit-box">
+          <div class="edit-box-heading">
+            <span class="eyebrow">Edit fields</span>
+            <span class="selection-note" id="selection-note">None selected</span>
+          </div>
+          <button type="button" class="btn-danger btn-wide" id="remove-field-button" disabled>Remove selected field</button>
+          <button type="button" class="btn-quiet btn-wide" id="undo-field-button" disabled>Undo last field</button>
+          <button type="button" class="btn-outline btn-wide" id="review-field-button" disabled>Mark for review</button>
+          <label class="select-label" for="review-reason">Review reason
+            <select id="review-reason" disabled>
+              <option value="boundary">Boundary is unclear</option>
+              <option value="time-window">Time windows disagree</option>
+              <option value="natural-regrowth">Natural vegetation or regrowth</option>
+              <option value="imagery">Imagery problem</option>
+            </select>
+          </label>
+          <p class="hint">Click a field on the map to select it. Delete or Backspace removes it.</p>
+        </div>
 
         <div class="validation-box" id="validation-box">
           <span class="validation-icon">✓</span>
           <span>400 m² minimum · 10 m minimum edge · no overlaps</span>
         </div>
+
+        <div class="section-rule"></div>
+        <p class="eyebrow">Field guide</p>
+        <button type="button" class="btn-outline btn-wide" id="guidance-button">Open labeling guide <span>↗</span></button>
+        <button type="button" class="btn-quiet btn-wide" id="zoom-task-button">Zoom to task</button>
 
         <div class="section-rule"></div>
         <div class="panel-heading compact">
@@ -77,6 +105,11 @@
 
         <div class="section-rule"></div>
         <p class="eyebrow">Before upload</p>
+        <div class="review-checklist">
+          <label class="layer-toggle"><input type="checkbox" id="time-window-check" /> <span>Compared a second time window</span></label>
+          <label class="layer-toggle"><input type="checkbox" id="nir-check" /> <span>Checked NIR / alternate imagery</span></label>
+          <label class="layer-toggle"><input type="checkbox" id="context-check" /> <span>Reviewed the wider task context</span></label>
+        </div>
         <ul class="check-list">
           <li>One polygon per annual-crop field</li>
           <li>Do not edit existing farmland</li>
@@ -88,6 +121,28 @@
 
       <div class="map-attribution">EOxCloudless · Sentinel-2 2025 · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · OSM reference © contributors</div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <dialog class="guidance-dialog" id="guidance-dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Labeling guide</p>
+            <h2>Make the field call</h2>
+          </div>
+          <button type="button" class="icon-button" id="close-guidance" aria-label="Close labeling guide">×</button>
+        </div>
+        <div class="training-tabs" role="tablist" aria-label="Training sections">
+          <button type="button" class="training-tab is-active" id="workflow-tab" role="tab" aria-selected="true">Decision workflow</button>
+          <button type="button" class="training-tab" id="examples-tab" role="tab" aria-selected="false">Visual examples</button>
+        </div>
+        <section id="workflow-panel" class="training-panel" role="tabpanel">
+          <div class="training-progress" id="training-progress"></div>
+          <div class="training-step" id="training-step"></div>
+        </section>
+        <section id="examples-panel" class="training-panel is-hidden" role="tabpanel">
+          <div class="example-filters" id="example-filters"></div>
+          <div class="example-deck" id="example-deck"></div>
+        </section>
+        <p class="hint">Condensed from the WRI × ASU labeling standards and annotation discussion slides. <a class="training-source" href="https://docs.google.com/presentation/d/1kTYfqnRoWjFfIRHDnQ-IVFTQMCsZAfwnsBJf1vZLdp8/edit" target="_blank" rel="noreferrer">Open source discussion deck ↗</a> Project-specific Tasking Manager instructions take precedence.</p>
+      </dialog>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

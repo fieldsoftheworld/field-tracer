@@ -1,7 +1,15 @@
 import type { Feature, FeatureCollection, Polygon } from "geojson";
 
-export type FieldFeature = Feature<Polygon, { id: string; areaM2: number; valid: boolean }>;
-export type FieldCollection = FeatureCollection<Polygon, { id: string; areaM2: number; valid: boolean }>;
+export type ReviewReason = "boundary" | "time-window" | "natural-regrowth" | "imagery";
+export type FieldProperties = {
+  id: string;
+  areaM2: number;
+  valid: boolean;
+  needsReview?: boolean;
+  reviewReason?: ReviewReason;
+};
+export type FieldFeature = Feature<Polygon, FieldProperties>;
+export type FieldCollection = FeatureCollection<Polygon, FieldProperties>;
 
 export type TaskContext = {
   projectId: string;

@@ -58,6 +58,33 @@ tasks and updated in the editor and project instructions together.
 The editor should show a clear validation error before upload. It should not silently
 discard a mapper’s geometry.
 
+## Editing safeguards
+
+- While drawing, use **Undo point** or `⌘/Ctrl+Z` to remove the most recent point.
+- Use **Cancel** or `Escape` to discard the current unfinished polygon.
+- Click a completed field to select it, then use **Remove selected field** or
+  `Delete`/`Backspace` to remove it before upload.
+- **Undo last field** is a shortcut for removing the most recently completed field.
+- Removing a field only changes the current browser session; nothing is sent to OSM
+  until upload is explicitly completed.
+
+## Review flags and imagery checks
+
+- Before submitting, compare a second time window and inspect NIR or another
+  available imagery source when possible. Use the wider task context to avoid
+  mistaking a local texture or harvest event for a field boundary.
+- A mapper can select a field and mark it **Needs review**, with a local reason
+  such as unclear boundary, conflicting time windows, natural regrowth, or an
+  imagery problem. This is review metadata for the annotation workflow, not an
+  OSM tag and not a substitute for HOT Tasking Manager validation.
+- The in-app guide summarizes the current WRI × ASU standards. Project-specific
+  Tasking Manager instructions take precedence.
+
+The editor also includes a condensed interactive decision workflow and a
+scrollable visual example deck. The examples are curated from the WRI × ASU
+annotation discussion slides and focus on boundary ambiguity, NIR, roads, fire
+and mining, natural regrowth, plantations, and splitting decisions.
+
 ## OSM tagging
 
 Use the project-approved OSM tag schema. The initial proposed tag is:
