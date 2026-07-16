@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Bun / Node
+node_modules/
+dist/
+test-results/
+.env.local
+.env.*.local

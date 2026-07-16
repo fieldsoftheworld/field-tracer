@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#17130f" />
+    <meta name="description" content="Human annotation of annual crop field boundaries." />
+    <title>Field Tracer · Annual crop boundaries</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="viewport">
+      <div id="map" role="img" aria-label="Satellite annotation map"></div>
+      <header class="brand glass-panel">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span></div>
+        <div>
+          <p class="eyebrow">Fields of the World</p>
+          <h1>Field Tracer</h1>
+        </div>
+      </header>
+
+      <div class="top-status glass-panel" id="task-status">
+        <span class="status-dot"></span>
+        <span id="status-copy">Draft task · ready to annotate</span>
+      </div>
+
+      <aside class="left-panel glass-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Task context</p>
+            <h2 id="task-title">Central Illinois pilot</h2>
+          </div>
+          <span class="task-chip" id="task-chip">DEMO-01</span>
+        </div>
+        <p class="task-copy">Map annual-crop fields inside the highlighted task. Existing OSM farmland is reference only.</p>
+
+        <div class="metric-row">
+          <div><span class="metric-value" id="field-count">0</span><span class="metric-label">fields</span></div>
+          <div><span class="metric-value" id="area-count">0</span><span class="metric-label">m² total</span></div>
+        </div>
+
+        <div class="section-rule"></div>
+        <p class="eyebrow">Draw</p>
+        <button type="button" class="btn-primary btn-wide" id="draw-button">Draw field polygon</button>
+        <button type="button" class="btn-quiet btn-wide" id="finish-button" disabled>Finish current polygon</button>
+        <p class="hint" id="draw-hint">Click around a field. Double-click to close it.</p>
+
+        <div class="validation-box" id="validation-box">
+          <span class="validation-icon">✓</span>
+          <span>400 m² minimum · 10 m minimum edge · no overlaps</span>
+        </div>
+
+        <div class="section-rule"></div>
+        <div class="panel-heading compact">
+          <p class="eyebrow">Layers</p>
+          <button type="button" class="icon-button" id="osm-layer-button" title="Toggle OSM reference layer">OSM</button>
+        </div>
+        <label class="layer-toggle"><input type="checkbox" id="osm-layer" checked /> <span>Reference context</span></label>
+        <label class="layer-toggle"><input type="checkbox" id="task-layer" checked /> <span>Task boundary</span></label>
+      </aside>
+
+      <aside class="right-panel glass-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Access</p>
+            <h2>Ready to contribute?</h2>
+          </div>
+          <span class="live-dot"></span>
+        </div>
+        <p class="task-copy">Log in with OSM to upload. HOT TM owns the task lock and review status.</p>
+        <button type="button" class="btn-outline btn-wide" id="osm-login">Continue with OpenStreetMap <span>↗</span></button>
+        <button type="button" class="btn-outline btn-wide" id="planet-login">Connect Planet imagery <span>↗</span></button>
+        <button type="button" class="btn-quiet btn-wide" id="planet-key">Use a Planet key for this session</button>
+        <div class="session-note"><span class="status-dot muted"></span><span id="session-copy">No OSM session · EOX imagery active</span></div>
+
+        <div class="section-rule"></div>
+        <p class="eyebrow">Before upload</p>
+        <ul class="check-list">
+          <li>One polygon per annual-crop field</li>
+          <li>Do not edit existing farmland</li>
+          <li>Leave uncertain boundaries unmapped</li>
+        </ul>
+        <button type="button" class="btn-primary btn-wide upload-button" id="upload-button" disabled>Upload to OSM</button>
+        <button type="button" class="btn-quiet btn-wide" id="return-button">Return to HOT Tasking Manager</button>
+      </aside>
+
+      <div class="map-attribution">EOxCloudless · Sentinel-2 2025 · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · OSM reference © contributors</div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

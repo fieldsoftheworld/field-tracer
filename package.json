@@ -1,0 +1,28 @@
+{
+  "name": "field-tracer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "bun run lint && bun run test && bun run test:e2e && bun run build",
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "preview": "vite preview",
+    "test": "bun test src",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "maplibre-gl": "^5.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
+    "@playwright/test": "^1.61.1",
+    "@types/bun": "^1.3.3",
+    "@types/geojson": "^7946.0.16",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  }
+}
