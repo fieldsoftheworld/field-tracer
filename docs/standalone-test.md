@@ -25,7 +25,7 @@ VITE_BASE_PATH=/
 ```
 
 The local redirect URI is `http://127.0.0.1:5173/`. For the deployed site,
-register `https://fieldsoftheworld.github.io/field-tracer/` as another redirect
+register `https://fieldsofthe.world/field-tracer/` as another redirect
 URI and set the GitHub repository variable `OSM_CLIENT_ID`. The Pages workflow
 uses the production OSM API unless `OSM_API_BASE=development` is configured.
 

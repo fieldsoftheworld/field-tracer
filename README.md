@@ -48,7 +48,9 @@ it does not authenticate with OSM, Planet, or upload external changes.
 The repository includes a GitHub Actions workflow at
 `.github/workflows/deploy-pages.yml`. It publishes the site at:
 
-<https://fieldsoftheworld.github.io/field-tracer/>
+<https://fieldsofthe.world/field-tracer/>
+
+The `github.io` URL redirects to this custom Pages domain.
 
 Enable **Settings → Pages → Source: GitHub Actions** in the repository. Add the
 public OSM OAuth client ID as a repository variable named `OSM_CLIENT_ID`. The
@@ -59,7 +61,7 @@ development server.
 Register this exact production redirect URI in the OSM OAuth application:
 
 ```text
-https://fieldsoftheworld.github.io/field-tracer/
+https://fieldsofthe.world/field-tracer/
 ```
 
 Keep `http://127.0.0.1:5173/` registered as a second redirect URI for local
