@@ -1,3 +1,5 @@
+import { osmAuth } from "osm-auth";
+
 const OSM_DEV = "https://master.apis.dev.openstreetmap.org";
 const OSM_PROD = "https://www.openstreetmap.org";
 
@@ -12,7 +14,13 @@ export type OsmUploadResult = { changesetId: string; changesetUrl: string };
 
 export function isOauthPopupCallback(search: string): boolean {
   const callback = new URLSearchParams(search);
-  return Boolean(callback.get("state")?.endsWith(".popup")) && (callback.has("code") || callback.has("error"));
+  return callback.has("code") || callback.has("error");
+}
+
+export function notifyOauthPopup(): void {
+  const channel = new BroadcastChannel("osm-api-auth-complete");
+  channel.postMessage(window.location.href);
+  channel.close();
 }
 
 function apiBase(): string {
@@ -27,74 +35,40 @@ function redirectUri(): string {
   return `${window.location.origin}${window.location.pathname}`;
 }
 
-function randomString(length: number): string {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+type BrowserOsmAuth = {
+  authenticate(callback: (error: unknown) => void): void;
+  getAccessToken(): string;
+};
+type BrowserOsmAuthFactory = (options: {
+  client_id: string;
+  redirect_uri: string;
+  scope: string;
+  url: string;
+  apiUrl: string;
+}) => BrowserOsmAuth;
 
-async function challenge(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
-  const bytes = new Uint8Array(digest);
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-export async function beginOsmLogin(): Promise<string> {
+export async function beginOsmLogin(): Promise<OsmSession> {
   const configuredClientId = clientId();
   if (!configuredClientId) throw new Error("Set VITE_OSM_CLIENT_ID before enabling OSM login.");
-  const verifier = randomString(32);
-  const state = `${randomString(16)}.popup`;
-  // A login popup is a separate top-level browsing context. localStorage is
-  // shared by same-origin tabs after OSM redirects the popup home, unlike
-  // sessionStorage which can be lost when cross-origin opener isolation applies.
-  localStorage.setItem("field-tracer-osm-verifier", verifier);
-  localStorage.setItem("field-tracer-osm-state", state);
-  const params = new URLSearchParams({
-    response_type: "code",
+  // osm-auth publishes a callable ESM factory but its legacy declaration file
+  // describes it as a class. Narrow the package boundary here.
+  const createOsmAuth = osmAuth as unknown as BrowserOsmAuthFactory;
+  const client = createOsmAuth({
     client_id: configuredClientId,
     redirect_uri: redirectUri(),
     scope: "openid read_prefs write_api",
-    state,
-    code_challenge: await challenge(verifier),
-    code_challenge_method: "S256",
+    url: apiBase(),
+    apiUrl: apiBase(),
   });
-  return `${apiBase()}/oauth2/authorize?${params.toString()}`;
-}
-
-export async function completeOsmLogin(search = window.location.search): Promise<OsmSession | undefined> {
-  const params = new URLSearchParams(search);
-  const code = params.get("code");
-  const returnedState = params.get("state");
-  const verifier = localStorage.getItem("field-tracer-osm-verifier");
-  const expectedState = localStorage.getItem("field-tracer-osm-state");
-  const configuredClientId = clientId();
-  if (!code || !verifier || !configuredClientId || !returnedState || returnedState !== expectedState) {
-    if (params.has("error")) throw new Error(params.get("error_description") ?? "OSM login was not completed.");
-    return undefined;
-  }
-
-  const response = await fetch(`${apiBase()}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: configuredClientId,
-      redirect_uri: redirectUri(),
-      code_verifier: verifier,
-    }),
+  await new Promise<void>((resolve, reject) => {
+    client.authenticate((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
   });
-  if (!response.ok) throw new Error(`OSM token exchange failed (${response.status}).`);
-  const payload = (await response.json()) as { access_token?: string };
-  if (!payload.access_token) throw new Error("OSM did not return an access token.");
-  localStorage.removeItem("field-tracer-osm-verifier");
-  localStorage.removeItem("field-tracer-osm-state");
-  window.history.replaceState({}, "", window.location.pathname);
-  return { accessToken: payload.access_token, apiBase: apiBase() };
+  const accessToken = client.getAccessToken();
+  if (!accessToken) throw new Error("OSM did not return an access token.");
+  return { accessToken, apiBase: apiBase() };
 }
 
 function escapeXml(value: string): string {

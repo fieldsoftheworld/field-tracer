@@ -15,6 +15,7 @@
         "@turf/union": "^7.3.5",
         "@turf/unkink-polygon": "^7.3.5",
         "maplibre-gl": "^5.7.0",
+        "osm-auth": "^3.2.0",
         "pmtiles": "^4.4.1",
       },
       "devDependencies": {
@@ -267,6 +268,8 @@
     "murmurhash-js": ["murmurhash-js@1.0.0", "", {}, "sha512-TvmkNhkv8yct0SVBSy+o8wYzXjE4Zz3PCesbfs8HiCXXdcTuocApFv11UWlNFWKYsP2okqrhb7JNlSm9InBhIw=="],
 
     "nanoid": ["nanoid@3.3.16", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q=="],
+
+    "osm-auth": ["osm-auth@3.2.0", "", {}, "sha512-RGLVOLENia6wbmpUiSk6/3DQAhWL7hXNSY01VDAfvX6/V4+DG3eUsxzBW44Q/mdKFnAKDne97ut27D/9qtmmYw=="],
 
     "pbf": ["pbf@4.0.2", "", { "dependencies": { "resolve-protobuf-schema": "^2.1.0" }, "bin": { "pbf": "bin/pbf" } }, "sha512-J0ajxARhZfpUEebxYs1vhMGMuLSXtBe1e+fFPDrf2uA2hgo+UshKfNUWOz92HJNz6/NFEXseQPddnHkTreWRqg=="],
 

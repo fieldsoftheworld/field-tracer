@@ -30,8 +30,8 @@ import {
 import {
   beginOsmLogin,
   campaignId,
-  completeOsmLogin,
   isOauthPopupCallback,
+  notifyOauthPopup,
   type OsmSession,
   uploadFieldsToOsm,
 } from "./osm";
@@ -87,7 +87,10 @@ let uploadedChangesetUrl: string | undefined;
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 const isOauthPopup = isOauthPopupCallback(window.location.search);
-const osmLoginChannel = new BroadcastChannel("field-tracer-osm-login");
+if (isOauthPopup) {
+  notifyOauthPopup();
+  window.close();
+}
 
 const map = createMap("map", task, {
   onMapClick: (event) => {
@@ -548,9 +551,8 @@ function deleteSelectedVertex(): void {
 
 async function connectOsm(): Promise<void> {
   try {
-    const authorizationUrl = await beginOsmLogin();
-    const loginWindow = window.open(authorizationUrl, "field-tracer-osm-login", "popup,width=520,height=720");
-    if (!loginWindow) toast("Allow pop-ups for Field Tracer to continue with OpenStreetMap.");
+    const session = await beginOsmLogin();
+    acceptOsmSession(session);
   } catch (error) {
     toast(error instanceof Error ? error.message : "Could not start OSM login");
   }
@@ -917,47 +919,6 @@ function acceptOsmSession(session: OsmSession): void {
   $("osm-login").textContent = "Connected to OpenStreetMap ✓";
   $("osm-login").classList.add("is-connected");
   updateSummary();
-}
-
-async function finishOauthPopup(): Promise<void> {
-  try {
-    const session = await completeOsmLogin();
-    if (session) osmLoginChannel.postMessage({ type: "field-tracer-osm-session", session });
-  } catch (error) {
-    osmLoginChannel.postMessage({
-      type: "field-tracer-osm-error",
-      message: error instanceof Error ? error.message : "Could not complete OSM login",
-    });
-  }
-  window.close();
-}
-
-osmLoginChannel.addEventListener(
-  "message",
-  (event: MessageEvent<{ type?: string; session?: OsmSession; message?: string }>) => {
-    if (event.data.type === "field-tracer-osm-session" && event.data.session) acceptOsmSession(event.data.session);
-    if (event.data.type === "field-tracer-osm-error" && event.data.message) toast(event.data.message);
-  },
-);
-
-window.addEventListener("message", (event: MessageEvent<{ type?: string; search?: string }>) => {
-  if (event.origin !== window.location.origin || event.data.type !== "field-tracer-osm-callback" || !event.data.search)
-    return;
-  void completeOsmLogin(event.data.search)
-    .then((session) => {
-      if (session) acceptOsmSession(session);
-    })
-    .catch((error: unknown) => toast(error instanceof Error ? error.message : "Could not complete OSM login"));
-});
-
-if (isOauthPopup) {
-  void finishOauthPopup();
-} else {
-  void completeOsmLogin()
-    .then((session) => {
-      if (session) acceptOsmSession(session);
-    })
-    .catch((error: unknown) => toast(error instanceof Error ? error.message : "Could not complete OSM login"));
 }
 void osmSession;
 
