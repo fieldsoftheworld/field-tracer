@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { buildChangesetXml, buildFieldOsmChange, isOauthPopupCallback } from "./osm";
 
-test("recognizes an OAuth callback by the popup window name", () => {
-  expect(isOauthPopupCallback("field-tracer-osm-login", "?code=abc&state=123")).toBe(true);
-  expect(isOauthPopupCallback("field-tracer-osm-login", "?error=access_denied")).toBe(true);
-  expect(isOauthPopupCallback("", "?code=abc")).toBe(false);
+test("recognizes an OAuth callback from the state created for a popup", () => {
+  expect(isOauthPopupCallback("?code=abc&state=123.popup")).toBe(true);
+  expect(isOauthPopupCallback("?error=access_denied&state=123.popup")).toBe(true);
+  expect(isOauthPopupCallback("?code=abc&state=123")).toBe(false);
 });
 
 test("builds a changeset with campaign metadata instead of custom field tags", () => {

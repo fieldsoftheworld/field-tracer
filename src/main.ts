@@ -86,7 +86,7 @@ let uploadedChangesetUrl: string | undefined;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-const isOauthPopup = isOauthPopupCallback(window.name, window.location.search);
+const isOauthPopup = isOauthPopupCallback(window.location.search);
 const osmLoginChannel = new BroadcastChannel("field-tracer-osm-login");
 
 const map = createMap("map", task, {

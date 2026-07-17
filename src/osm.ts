@@ -10,9 +10,9 @@ export type CampaignUploadContext = {
 };
 export type OsmUploadResult = { changesetId: string; changesetUrl: string };
 
-export function isOauthPopupCallback(windowName: string, search: string): boolean {
+export function isOauthPopupCallback(search: string): boolean {
   const callback = new URLSearchParams(search);
-  return windowName === "field-tracer-osm-login" && (callback.has("code") || callback.has("error"));
+  return Boolean(callback.get("state")?.endsWith(".popup")) && (callback.has("code") || callback.has("error"));
 }
 
 function apiBase(): string {
@@ -47,7 +47,7 @@ export async function beginOsmLogin(): Promise<string> {
   const configuredClientId = clientId();
   if (!configuredClientId) throw new Error("Set VITE_OSM_CLIENT_ID before enabling OSM login.");
   const verifier = randomString(32);
-  const state = randomString(16);
+  const state = `${randomString(16)}.popup`;
   sessionStorage.setItem("field-tracer-osm-verifier", verifier);
   sessionStorage.setItem("field-tracer-osm-state", state);
   const params = new URLSearchParams({
