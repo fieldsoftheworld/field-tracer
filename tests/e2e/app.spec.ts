@@ -49,6 +49,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page.locator("#comparison-year-value")).toHaveText("2021");
     await expect(page.getByRole("button", { name: "Flicker comparison" })).toBeVisible();
     await expect(page.getByLabel("Brightness")).toBeVisible();
+    await expect(page.getByLabel("Snap to visible roads / waterways")).toBeVisible();
     await expect(page.getByRole("button", { name: "Review task before upload" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Mark task reviewed — no fields visible" })).toBeVisible();
   });
@@ -78,6 +79,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByRole("button", { name: "Undo last field" })).toBeDisabled();
     await expect(page.getByText("None selected")).toBeVisible();
     await expect(page.getByRole("button", { name: "Clean geometry" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Merge with another traced field" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Split selected field with a line" })).toBeDisabled();
   });
 

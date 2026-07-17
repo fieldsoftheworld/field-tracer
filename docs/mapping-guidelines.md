@@ -85,7 +85,9 @@ faster starting geometry, not permission to square off an irregular field.
 - **Split selected field with a line** is for a clearly visible internal boundary.
   Draw a line all the way across the selected field; the editor creates two polygons
   only when both meet the normal field checks. Do not merge distinct fields merely
-  because they touch.
+  because they touch. **Merge with another traced field** is only for correcting an
+  accidental split of one visually continuous field; it never operates on existing
+  OSM farmland.
 - Removing a field only changes the current browser session; nothing is sent to OSM
   until upload is explicitly completed.
 
@@ -106,7 +108,9 @@ faster starting geometry, not permission to square off an irregular field.
   they never modify source imagery or field coordinates.
 - Optional Overture roads, waterways, and buildings are reference geometry only.
   They can help explain an edge or obstacle but must not be copied automatically or
-  treated as authoritative field boundaries.
+  treated as authoritative field boundaries. Mappers can opt into snapping to
+  visible Overture roads and waterways, then must confirm the snapped edge in the
+  imagery before upload.
 - The in-app guide summarizes the current WRI × ASU standards. Project-specific
   Tasking Manager instructions take precedence.
 

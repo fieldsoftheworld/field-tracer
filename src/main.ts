@@ -2,6 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { featureCollection, lineString } from "@turf/helpers";
 import polygonToLine from "@turf/polygon-to-line";
 import polygonize from "@turf/polygonize";
+import union from "@turf/union";
 import type { Feature, Polygon, Position } from "geojson";
 import maplibregl from "maplibre-gl";
 import {
@@ -24,6 +25,7 @@ import {
   setMosaicYear,
   setTaskData,
   toggleLayer,
+  visibleReferenceLines,
 } from "./map";
 import { beginOsmLogin, completeOsmLogin, type OsmSession } from "./osm";
 import { trainingCategories, trainingExamples, trainingVideos } from "./training";
@@ -71,6 +73,8 @@ let comparisonYear = 2020;
 let flickerTimer: number | undefined;
 let splitMode = false;
 let splitDraft: Position[] = [];
+let mergeMode = false;
+let referenceSnapEnabled = false;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -88,6 +92,10 @@ if (isOauthPopup) {
 
 const map = createMap("map", task, {
   onMapClick: (event) => {
+    if (mergeMode) {
+      mergeWithFieldAt(event.point);
+      return;
+    }
     if (splitMode) {
       splitDraft.push([event.lngLat.lng, event.lngLat.lat]);
       setDraftData(map, splitDraft as number[][]);
@@ -168,9 +176,13 @@ function selectedField(): FieldCollection["features"][number] | undefined {
 
 function snappedCoordinate(coordinate: Position): Position {
   if (!snapEnabled) return coordinate;
+  const referenceLines = referenceSnapEnabled
+    ? visibleReferenceLines(map, map.project(coordinate as [number, number])).map((line) => line as Position[])
+    : [];
   return snapPoint(coordinate, [
     task.boundary.geometry.coordinates[0],
     ...fields.features.map((field) => field.geometry.coordinates[0]),
+    ...referenceLines,
   ]);
 }
 
@@ -289,6 +301,7 @@ function updateEditingControls(): void {
   $("clean-field-button").toggleAttribute("disabled", !selected);
   $("repair-field-button").toggleAttribute("disabled", !selected);
   $("trim-field-button").toggleAttribute("disabled", !selected || fields.features.length < 2);
+  $("merge-field-button").toggleAttribute("disabled", !selected || fields.features.length < 2);
   $("split-field-button").toggleAttribute("disabled", !selected);
   const reviewButton = $("review-field-button") as HTMLButtonElement;
   reviewButton.disabled = !selected;
@@ -417,6 +430,47 @@ function trimSelectedField(): void {
   replaceSelectedField(trimmed, "Overlap trimmed · inspect the highlighted field");
 }
 
+function startMergeField(): void {
+  if (!selectedField()) return;
+  mergeMode = !mergeMode;
+  $("merge-field-button").textContent = mergeMode
+    ? "Click the other field to merge…"
+    : "Merge with another traced field";
+  toast(mergeMode ? "Click a second campaign-created field to merge it" : "Merge canceled");
+}
+
+function mergeWithFieldAt(point: maplibregl.Point): void {
+  const first = selectedField();
+  const hit = map.queryRenderedFeatures(point, { layers: ["field-fill"] })[0];
+  const secondId = typeof hit?.properties?.id === "string" ? hit.properties.id : undefined;
+  const second = fields.features.find((field) => field.properties.id === secondId);
+  mergeMode = false;
+  $("merge-field-button").textContent = "Merge with another traced field";
+  if (!first || !second || first.properties.id === second.properties.id) {
+    toast("Choose a different traced field to merge");
+    return;
+  }
+  const merged = union(featureCollection([first, second]));
+  if (merged?.geometry.type !== "Polygon") {
+    toast("These fields are disjoint — keep them as separate polygons");
+    return;
+  }
+  const replacement = createFieldFeature(merged.geometry.coordinates[0], first.properties.id);
+  const otherFields = fields.features.filter((field) => field !== first && field !== second);
+  const errors = validateField(replacement, task, { type: "FeatureCollection", features: otherFields });
+  if (errors.length) {
+    toast(`Merge needs another pass: ${errors[0]}`);
+    return;
+  }
+  const firstIndex = fields.features.indexOf(first);
+  fields.features.splice(firstIndex, 1, replacement);
+  fields.features.splice(fields.features.indexOf(second), 1);
+  selectedFieldId = replacement.properties.id;
+  refreshMap();
+  updateSummary();
+  toast("Fields merged · inspect the highlighted boundary before upload");
+}
+
 function startSplitField(): void {
   if (!selectedField()) return;
   splitMode = !splitMode;
@@ -536,6 +590,7 @@ $("delete-vertex-button").addEventListener("click", deleteSelectedVertex);
 $("clean-field-button").addEventListener("click", cleanSelectedField);
 $("repair-field-button").addEventListener("click", repairSelectedField);
 $("trim-field-button").addEventListener("click", trimSelectedField);
+$("merge-field-button").addEventListener("click", startMergeField);
 $("split-field-button").addEventListener("click", startSplitField);
 $("review-field-button").addEventListener("click", toggleReviewFlag);
 $("review-reason").addEventListener("change", (event) => setReviewReason((event.target as HTMLSelectElement).value));
@@ -727,6 +782,14 @@ $("mosaic-year").addEventListener("input", (event) => {
 $("snap-mode").addEventListener("change", (event) => {
   snapEnabled = (event.target as HTMLInputElement).checked;
   toast(snapEnabled ? "Snapping to task and traced fields is on" : "Snapping is off");
+});
+$("reference-snap").addEventListener("change", (event) => {
+  referenceSnapEnabled = (event.target as HTMLInputElement).checked;
+  toast(
+    referenceSnapEnabled
+      ? "Road and water snapping is on when those layers are visible"
+      : "Road and water snapping is off",
+  );
 });
 $("comparison-layer").addEventListener("change", (event) => {
   comparisonEnabled = (event.target as HTMLInputElement).checked;

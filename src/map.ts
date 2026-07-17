@@ -277,3 +277,11 @@ export function setComparisonYear(map: MapLibreMap, year: number | undefined, op
     }
   }
 }
+
+export function visibleReferenceLines(map: MapLibreMap, point: maplibregl.Point): number[][][] {
+  return map.queryRenderedFeatures(point, { layers: ["overture-roads", "overture-water-line"] }).flatMap((feature) => {
+    if (feature.geometry.type === "LineString") return [feature.geometry.coordinates as number[][]];
+    if (feature.geometry.type === "MultiLineString") return feature.geometry.coordinates as number[][][];
+    return [];
+  });
+}

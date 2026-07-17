@@ -22,6 +22,7 @@
     "@turf/polygon-to-line": "^7.3.5",
     "@turf/polygonize": "^7.3.5",
     "@turf/simplify": "^7.3.5",
+    "@turf/union": "^7.3.5",
     "@turf/unkink-polygon": "^7.3.5",
     "maplibre-gl": "^5.7.0",
     "pmtiles": "^4.4.1"
