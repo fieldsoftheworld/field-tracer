@@ -22,6 +22,7 @@ Create a local `.env.local` file:
 VITE_OSM_CLIENT_ID=your-development-server-client-id
 VITE_OSM_API_BASE=development
 VITE_BASE_PATH=/
+VITE_FTW_CAMPAIGN_ID=field-tracer-dev-test
 ```
 
 The local redirect URI is `http://127.0.0.1:5173/`. For the deployed site,
@@ -39,8 +40,12 @@ set explicitly.
 3. Confirm area, edge-length, and overlap validation.
 4. Click **Continue with OpenStreetMap**.
 5. Authorize the development-server app.
-6. Upload a test changeset once the OSM upload adapter is enabled.
-7. Confirm the changeset and its tags on the development server.
+6. Click **Upload to OSM**. This writes new closed `landuse=farmland` ways only;
+   it never modifies existing OSM farmland.
+7. Confirm the returned changeset link, then inspect its `ftw:campaign`,
+   `ftw:project`, and `ftw:task` tags on the development server.
+8. Run the campaign extractor against that changeset and confirm that the GeoJSON
+   contains the original submitted polygons.
 
 The eventual HOT TM path uses the same editor, but supplies a real locked task
 boundary and project/task identifiers instead of the demo task.

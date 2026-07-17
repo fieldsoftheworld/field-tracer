@@ -5,6 +5,8 @@ test.describe("Field Tracer editor", () => {
     await page.addInitScript(() => localStorage.setItem("field-tracer-tutorial-seen", "true"));
     await page.goto("/");
     await expect(page.locator("#map .maplibregl-canvas")).toBeVisible();
+    await page.locator(".advanced-tools > summary").click();
+    await page.locator(".right-panel > summary").click();
   });
 
   test("renders the annotation workspace", async ({ page }) => {
@@ -13,6 +15,13 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByRole("heading", { name: "Central Illinois pilot" })).toBeVisible();
     await expect(page.getByText("EOxCloudless · Sentinel-2 mosaic")).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload to OSM" })).toBeDisabled();
+  });
+
+  test("starts in a mapper-first layout with advanced panels collapsed", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator(".advanced-tools")).not.toHaveAttribute("open", "");
+    await expect(page.locator(".right-panel")).not.toHaveAttribute("open", "");
+    await expect(page.getByText("Finish task", { exact: true })).toBeVisible();
   });
 
   test("enters and exits polygon drawing mode", async ({ page }) => {

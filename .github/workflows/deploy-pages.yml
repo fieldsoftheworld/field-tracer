@@ -35,6 +35,7 @@ jobs:
           VITE_BASE_PATH: /field-tracer/
           VITE_OSM_API_BASE: ${{ vars.OSM_API_BASE || 'production' }}
           VITE_OSM_CLIENT_ID: ${{ vars.OSM_CLIENT_ID }}
+          VITE_FTW_CAMPAIGN_ID: ${{ vars.FTW_CAMPAIGN_ID || 'field-tracer-pilot' }}
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

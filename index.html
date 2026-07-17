@@ -58,7 +58,9 @@
         <button type="button" class="btn-secondary btn-wide" id="finish-button" disabled>Finish current polygon</button>
         <p class="hint" id="draw-hint">Click around a field. Double-click to close it.</p>
 
-        <div class="edit-box">
+        <details class="advanced-tools">
+          <summary>Correct a field or change imagery</summary>
+          <div class="edit-box">
           <div class="edit-box-heading">
             <span class="eyebrow">Edit fields</span>
             <span class="selection-note" id="selection-note">None selected</span>
@@ -129,9 +131,11 @@
           <label class="layer-toggle"><input type="checkbox" id="reference-snap" /> <span>Snap to visible roads / waterways</span></label>
           <p class="hint">Reference only. These layers do not change your field polygons.</p>
         </div>
+        </details>
       </aside>
 
-      <aside class="right-panel glass-panel">
+      <details class="right-panel glass-panel">
+        <summary><span>Finish task</span><span id="finish-summary">Review and upload when ready</span></summary>
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Access</p>
@@ -161,8 +165,9 @@
           <li>Leave uncertain boundaries unmapped</li>
         </ul>
         <button type="button" class="btn-primary btn-wide upload-button" id="upload-button" disabled>Upload to OSM</button>
+        <p class="changeset-result" id="changeset-result" aria-live="polite"></p>
         <button type="button" class="btn-quiet btn-wide" id="return-button">Return to HOT Tasking Manager</button>
-      </aside>
+      </details>
 
       <div class="map-attribution">EOxCloudless · Sentinel-2 mosaic · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · Overture Maps · OSM reference © contributors</div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>

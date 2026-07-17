@@ -147,6 +147,18 @@ Use a deterministic changeset comment format:
 #fields-of-the-world #hotosm-project-<PROJECT_ID> task-<TASK_ID> annual-crop-fields
 ```
 
+Field Tracer also writes the stable campaign/task identifiers as **changeset** tags:
+
+```text
+ftw:campaign=<campaign id>
+ftw:project=<project id>
+ftw:task=<task id>
+```
+
+Do not add those identifiers to individual field ways. They describe the editing
+workflow rather than the real-world field, and OSM editors may remove workflow-like
+feature tags. The changeset is the durable campaign receipt.
+
 The editor must:
 
 - Prevent unrelated edits from being uploaded with field annotations.
@@ -171,6 +183,12 @@ The downstream extraction workflow should be able to filter by:
 Validators may review contributions through Tasking Manager. Any validator edits
 must remain distinguishable from the original mapper contribution through OSM
 history.
+
+OSM data can be improved, modified, or deleted by any editor acting under normal OSM
+rules. Deletion does not erase element history, and the campaign extractor preserves
+the geometry originally submitted in the tagged changeset. Treat the original
+changeset geometry as the label receipt, and a current OSM lookup as a separate
+"latest map state" product.
 
 Use **Review task before upload** to surface local geometry warnings, then inspect
 coverage and ambiguity. **Mark task reviewed — no fields visible** records an

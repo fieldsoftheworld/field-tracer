@@ -53,10 +53,10 @@ The repository includes a GitHub Actions workflow at
 The `github.io` URL redirects to this custom Pages domain.
 
 Enable **Settings → Pages → Source: GitHub Actions** in the repository. Add the
-public OSM OAuth client ID as a repository variable named `OSM_CLIENT_ID`. The
-workflow embeds it into the static bundle and uses the production OSM API by
-default. You can set `OSM_API_BASE=development` while testing against the OSM
-development server.
+public OSM OAuth client ID as a repository variable named `OSM_CLIENT_ID` and a
+stable campaign identifier as `FTW_CAMPAIGN_ID`. The workflow embeds both public
+values into the static bundle and uses the production OSM API by default. You can
+set `OSM_API_BASE=development` while testing against the OSM development server.
 
 Register this exact production redirect URI in the OSM OAuth application:
 
@@ -79,7 +79,45 @@ VITE_OSM_API_BASE=development
 ```
 
 See [docs/standalone-test.md](docs/standalone-test.md). Use a development-server
-account and data until the upload path has been verified.
+account and data for the first upload verification.
+
+## Campaign provenance and extraction
+
+Each upload creates one OSM changeset tagged with campaign metadata:
+
+```text
+ftw:campaign=<VITE_FTW_CAMPAIGN_ID>
+ftw:project=<Tasking Manager project ID>
+ftw:task=<Tasking Manager task ID>
+```
+
+The tags belong on the **changeset**, not individual OSM field ways. This keeps OSM
+feature tagging clean while retaining campaign, task, mapper UID, and changeset
+provenance. Set a stable public campaign identifier when building the site:
+
+```text
+VITE_FTW_CAMPAIGN_ID=ftw-annual-crops-2026-pilot
+```
+
+After a mapper uploads, record the shown changeset ID. Export the original submitted
+field geometry with the separate public-data script:
+
+```bash
+bun scripts/extract-campaign.ts \
+  --campaign ftw-annual-crops-2026-pilot \
+  --changeset 123456789 \
+  --output ftw-annual-crops-2026-pilot.geojson
+```
+
+Pass `--changeset` more than once for multiple uploads. The script verifies the
+`ftw:campaign` changeset tag, then downloads the original OSM change and writes
+GeoJSON with the changeset and way ID retained per field. It intentionally exports
+the submitted version; later OSM edits or deletion do not erase this audit record.
+
+For campaign-scale discovery, maintain the changeset IDs from Tasking Manager or use
+an OSM changeset-review service to find changesets by area/time/user, then feed the
+verified IDs to this script. The core OSM API does not provide a general custom-tag
+search endpoint for arbitrary campaigns.
 
 ## Project guidance
 

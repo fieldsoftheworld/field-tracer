@@ -196,6 +196,58 @@ h2 {
   padding: 18px;
 }
 
+.right-panel {
+  padding: 0;
+}
+
+.right-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.right-panel > summary::-webkit-details-marker,
+.advanced-tools > summary::-webkit-details-marker {
+  display: none;
+}
+
+.right-panel > summary span:last-child {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.right-panel > :not(summary) {
+  margin-right: 18px;
+  margin-left: 18px;
+}
+
+.right-panel > :last-child {
+  margin-bottom: 18px;
+}
+
+.advanced-tools {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.advanced-tools > summary {
+  padding: 14px 0 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+  list-style: none;
+}
+
 .left-panel {
   left: 24px;
 }
@@ -527,6 +579,18 @@ select:disabled {
   color: var(--text-muted);
   font-size: 0.65rem;
   line-height: 1.3;
+}
+
+.changeset-result {
+  margin: 9px 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.changeset-result a {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .status-dot.muted {

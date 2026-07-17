@@ -27,7 +27,7 @@ import {
   toggleLayer,
   visibleReferenceLines,
 } from "./map";
-import { beginOsmLogin, completeOsmLogin, type OsmSession } from "./osm";
+import { beginOsmLogin, campaignId, completeOsmLogin, type OsmSession, uploadFieldsToOsm } from "./osm";
 import { trainingCategories, trainingExamples, trainingVideos } from "./training";
 import type { FieldCollection, TaskContext } from "./types";
 import "./styles.css";
@@ -75,6 +75,7 @@ let splitMode = false;
 let splitDraft: Position[] = [];
 let mergeMode = false;
 let referenceSnapEnabled = false;
+let uploadedChangesetUrl: string | undefined;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -388,7 +389,11 @@ function updateSummary(): void {
   $("field-count").textContent = `${fields.features.length}`;
   $("area-count").textContent =
     `${Math.round(fields.features.reduce((total, field) => total + polygonAreaM2(field.geometry.coordinates[0]), 0)).toLocaleString()}`;
-  $("upload-button").toggleAttribute("disabled", fields.features.length === 0 || !osmConnected);
+  const unresolvedReview = fields.features.some((field) => field.properties.needsReview);
+  $("upload-button").toggleAttribute(
+    "disabled",
+    fields.features.length === 0 || !osmConnected || unresolvedReview || Boolean(uploadedChangesetUrl),
+  );
   updateQaSummary();
   updateEditingControls();
 }
@@ -550,6 +555,38 @@ async function connectOsm(): Promise<void> {
     if (!loginWindow) toast("Allow pop-ups for Field Tracer to continue with OpenStreetMap.");
   } catch (error) {
     toast(error instanceof Error ? error.message : "Could not start OSM login");
+  }
+}
+
+async function uploadToOsm(): Promise<void> {
+  if (!osmSession) {
+    toast("Sign in with OpenStreetMap before uploading.");
+    return;
+  }
+  if (fields.features.some((field) => field.properties.needsReview)) {
+    toast("Resolve or remove review flags before uploading public OSM data.");
+    return;
+  }
+  const button = $("upload-button") as HTMLButtonElement;
+  button.disabled = true;
+  button.textContent = "Uploading to OpenStreetMap…";
+  try {
+    const result = await uploadFieldsToOsm(osmSession, fields.features, {
+      campaignId: campaignId(),
+      projectId: task.projectId,
+      taskId: task.taskId,
+    });
+    uploadedChangesetUrl = result.changesetUrl;
+    $("changeset-result").innerHTML =
+      `Uploaded as <a href="${result.changesetUrl}" target="_blank" rel="noreferrer">OSM changeset ${result.changesetId} ↗</a>`;
+    $("session-copy").textContent =
+      `Uploaded ${fields.features.length} field${fields.features.length === 1 ? "" : "s"} · ready to return to HOT TM`;
+    $("status-copy").textContent = "Uploaded to OpenStreetMap · return to task";
+    toast("Upload complete · review the changeset before marking the task mapped");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Upload to OSM";
+    toast(error instanceof Error ? error.message : "OSM upload failed");
   }
 }
 
@@ -853,9 +890,7 @@ $("planet-key").addEventListener("click", () => {
   planetKeyPresent = Boolean(key?.trim());
   if (planetKeyPresent) toast("Planet key held for this session only — tile adapter pending");
 });
-$("upload-button").addEventListener("click", () =>
-  toast("Upload flow placeholder — OSM OAuth and osmChange upload next"),
-);
+$("upload-button").addEventListener("click", () => void uploadToOsm());
 $("review-task-button").addEventListener("click", () => {
   const warnings = fields.features.flatMap((field) => fieldWarnings(field, task, fields));
   if (warnings.length) {
@@ -886,7 +921,7 @@ window.addEventListener("message", (event: MessageEvent<{ type?: string; search?
       if (!session) return;
       osmSession = session;
       osmConnected = true;
-      $("session-copy").textContent = "OSM session ready · upload adapter pending";
+      $("session-copy").textContent = "OSM session ready · field upload enabled";
       $("osm-login").textContent = "Connected to OpenStreetMap ✓";
       $("osm-login").classList.add("is-connected");
       updateSummary();
@@ -900,7 +935,7 @@ if (!isOauthPopup)
       if (!session) return;
       osmSession = session;
       osmConnected = true;
-      $("session-copy").textContent = "OSM session ready · upload adapter pending";
+      $("session-copy").textContent = "OSM session ready · field upload enabled";
       $("osm-login").textContent = "Connected to OpenStreetMap ✓";
       $("osm-login").classList.add("is-connected");
       updateSummary();
