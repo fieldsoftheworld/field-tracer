@@ -26,6 +26,11 @@
         <span id="status-copy">Draft task · ready to annotate</span>
       </div>
 
+      <section class="quick-access glass-panel" aria-label="OpenStreetMap upload account">
+        <p class="eyebrow">Upload account</p>
+        <button type="button" class="btn-primary btn-wide" id="osm-login">Sign in with OpenStreetMap <span>↗</span></button>
+      </section>
+
       <aside class="left-panel glass-panel">
         <div class="panel-heading">
           <div>
@@ -138,16 +143,12 @@
         <summary><span>Finish task</span><span id="finish-summary">Review and upload when ready</span></summary>
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Access</p>
-            <h2>Ready to contribute?</h2>
+            <p class="eyebrow">Review</p>
+            <h2>Check your task</h2>
           </div>
           <span class="live-dot"></span>
         </div>
-        <p class="task-copy">Log in with OSM to upload. HOT TM owns the task lock and review status.</p>
-        <button type="button" class="btn-outline btn-wide" id="osm-login">Continue with OpenStreetMap <span>↗</span></button>
-        <button type="button" class="btn-outline btn-wide" id="planet-login">Connect Planet imagery <span>↗</span></button>
-        <button type="button" class="btn-quiet btn-wide" id="planet-key">Use a Planet key for this session</button>
-        <div class="session-note"><span class="status-dot muted"></span><span id="session-copy">No OSM session · EOX imagery active</span></div>
+        <p class="task-copy">Inspect geometry and coverage here. HOT TM owns task lock and review status.</p>
 
         <div class="section-rule"></div>
         <p class="eyebrow">Before upload</p>
@@ -166,6 +167,11 @@
         </ul>
         <button type="button" class="btn-primary btn-wide upload-button" id="upload-button" disabled>Upload to OSM</button>
         <p class="changeset-result" id="changeset-result" aria-live="polite"></p>
+        <details class="imagery-access">
+          <summary>Optional Planet imagery</summary>
+          <button type="button" class="btn-outline btn-wide" id="planet-login">Connect Planet imagery <span>↗</span></button>
+          <button type="button" class="btn-quiet btn-wide" id="planet-key">Use a Planet key for this session</button>
+        </details>
         <button type="button" class="btn-quiet btn-wide" id="return-button">Return to HOT Tasking Manager</button>
       </details>
 

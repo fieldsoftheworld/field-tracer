@@ -914,7 +914,6 @@ void planetKeyPresent;
 function acceptOsmSession(session: OsmSession): void {
   osmSession = session;
   osmConnected = true;
-  $("session-copy").textContent = "OSM session ready · field upload enabled";
   $("osm-login").textContent = "Connected to OpenStreetMap ✓";
   $("osm-login").classList.add("is-connected");
   updateSummary();

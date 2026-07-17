@@ -159,6 +159,19 @@ h2 {
   transform: translateX(-50%);
 }
 
+.quick-access {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  z-index: 3;
+  width: min(286px, calc(100vw - 48px));
+  padding: 11px 12px 10px;
+}
+
+.quick-access .eyebrow {
+  margin-bottom: 8px;
+}
+
 .status-dot,
 .live-dot {
   display: inline-block;
@@ -226,6 +239,7 @@ h2 {
 }
 
 .right-panel > :not(summary) {
+  width: calc(100% - 36px);
   margin-right: 18px;
   margin-left: 18px;
 }
@@ -381,6 +395,30 @@ h2 {
 .btn-quiet:hover {
   color: var(--text);
   background: rgba(181, 225, 230, 0.1);
+}
+
+.quick-access .btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.imagery-access {
+  padding-top: 4px;
+}
+
+.imagery-access summary {
+  padding: 10px 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.imagery-access .btn-wide + .btn-wide {
+  margin-top: 8px;
 }
 
 button:disabled {
@@ -989,6 +1027,11 @@ select:disabled {
   .top-status {
     top: 18px;
   }
+
+  .quick-access {
+    top: 16px;
+    right: 18px;
+  }
 }
 
 @media (max-width: 650px) {
@@ -1013,6 +1056,12 @@ select:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     transform: none;
+  }
+
+  .quick-access {
+    top: 72px;
+    right: 18px;
+    width: min(270px, calc(100vw - 36px));
   }
 
   .map-attribution {

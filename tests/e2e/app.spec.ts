@@ -22,6 +22,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page.locator(".advanced-tools")).not.toHaveAttribute("open", "");
     await expect(page.locator(".right-panel")).not.toHaveAttribute("open", "");
     await expect(page.getByText("Finish task", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in with OpenStreetMap ↗" })).toBeVisible();
   });
 
   test("enters and exits polygon drawing mode", async ({ page }) => {
@@ -136,13 +137,13 @@ test.describe("Field Tracer editor", () => {
   });
 
   test("requires OAuth configuration before starting OSM login", async ({ page }) => {
-    await page.getByRole("button", { name: /Continue with OpenStreetMap/ }).click();
+    await page.getByRole("button", { name: /Sign in with OpenStreetMap/ }).click();
     await expect(page.locator("#toast")).toContainText("Set VITE_OSM_CLIENT_ID");
   });
 
   test("keeps upload disabled until a field and OSM session exist", async ({ page }) => {
     const upload = page.getByRole("button", { name: "Upload to OSM" });
     await expect(upload).toBeDisabled();
-    await expect(page.getByText("No OSM session · EOX imagery active")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Sign in with OpenStreetMap/ })).toBeVisible();
   });
 });
