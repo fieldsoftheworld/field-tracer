@@ -62,6 +62,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page.locator("#comparison-year-value")).toHaveText("2021");
     await expect(page.getByRole("button", { name: "Flicker comparison" })).toBeVisible();
     await expect(page.getByLabel("Brightness")).toBeVisible();
+    await page.locator("details.reference-layers > summary").click();
     await expect(page.getByLabel("Snap to visible roads / waterways")).toBeVisible();
     await expect(page.getByRole("button", { name: "Review task before upload" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Mark task reviewed — no fields visible" })).toBeVisible();
@@ -116,7 +117,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByRole("button", { name: "All examples" })).toBeVisible();
     await expect(page.getByAltText(/A difficult boundary/)).toBeVisible();
     await page.getByRole("button", { name: "Imagery", exact: true }).click();
-    await expect(page.getByAltText(/Use NIR for subtle edges/)).toBeVisible();
+    await expect(page.getByAltText(/Mosaics versus basemaps/)).toBeVisible();
     await page.getByRole("tab", { name: "Walkthrough videos" }).click();
     await expect(page.locator("video")).toHaveCount(3);
   });
@@ -157,6 +158,26 @@ test.describe("Field Tracer editor", () => {
 
     await expect(page.locator("#toast")).toContainText("Field added");
     await expect(page.locator("#field-count")).toHaveText("1");
+  });
+
+  test("switches between Sentinel-2 and Planet basemaps", async ({ page }) => {
+    const provider = page.getByLabel("Basemap");
+    await expect(page.locator("#eox-period")).toBeVisible();
+    await expect(page.locator("#planet-period")).toBeHidden();
+
+    await provider.selectOption("planet-monthly");
+    await expect(page.locator("#eox-period")).toBeHidden();
+    await expect(page.locator("#planet-period")).toBeVisible();
+    await expect(page.locator("#planet-interval-label")).toHaveText("Month");
+    await expect(page.locator("#planet-status")).toContainText("Planet API key");
+
+    await provider.selectOption("planet-quarterly");
+    await expect(page.locator("#planet-interval-label")).toHaveText("Quarter");
+    await expect(page.locator("#planet-interval-value option").first()).toContainText("Q1");
+
+    await provider.selectOption("eox");
+    await expect(page.locator("#eox-period")).toBeVisible();
+    await expect(page.locator("#planet-period")).toBeHidden();
   });
 
   test("requires OAuth configuration before starting OSM login", async ({ page }) => {

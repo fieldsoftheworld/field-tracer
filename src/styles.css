@@ -216,7 +216,7 @@ h2 {
 .right-panel > summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 14px 16px;
   color: var(--text);
   cursor: pointer;
@@ -227,15 +227,59 @@ h2 {
 }
 
 .right-panel > summary::-webkit-details-marker,
-.advanced-tools > summary::-webkit-details-marker {
+.advanced-tools > summary::-webkit-details-marker,
+.image-tools > summary::-webkit-details-marker,
+.reference-layers > summary::-webkit-details-marker {
   display: none;
 }
 
+/* Shared disclosure affordance: a rotating chevron so every collapsible
+   section reads as expandable and shows its open/closed state. */
+.advanced-tools > summary,
+.image-tools > summary,
+.reference-layers > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
 .right-panel > summary span:last-child {
+  flex: 1;
   color: var(--text-muted);
   font-family: var(--font-body);
   font-size: 0.65rem;
   font-weight: 600;
+}
+
+.right-panel > summary::after,
+.advanced-tools > summary::after,
+.image-tools > summary::after,
+.reference-layers > summary::after {
+  content: "";
+  flex: none;
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.55;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+details[open] > summary::after {
+  transform: rotate(-135deg);
+  opacity: 0.95;
+}
+
+.right-panel > summary:hover,
+.advanced-tools > summary:hover,
+.image-tools > summary:hover,
+.reference-layers > summary:hover {
+  color: var(--text);
 }
 
 .right-panel > :not(summary) {
@@ -387,7 +431,7 @@ h2 {
 }
 
 .btn-quiet {
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   color: var(--text-muted);
   background: transparent;
 }
@@ -405,20 +449,18 @@ h2 {
   padding: 0 12px;
 }
 
-.imagery-access {
-  padding-top: 4px;
+.planet-period {
+  margin-top: 12px;
 }
 
-.imagery-access summary {
-  padding: 10px 0;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.68rem;
-  font-weight: 700;
+.period-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
-.imagery-access .btn-wide + .btn-wide {
-  margin-top: 8px;
+.planet-period .btn-outline {
+  margin-top: 10px;
 }
 
 button:disabled {
@@ -605,7 +647,17 @@ select:disabled {
   accent-color: var(--accent);
 }
 
-.reference-layers > .eyebrow {
+.reference-layers > summary {
+  margin-bottom: 4px;
+  padding: 2px 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.reference-layers[open] > summary {
   margin-bottom: 8px;
 }
 

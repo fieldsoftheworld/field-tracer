@@ -53,13 +53,6 @@ export const trainingExamples: TrainingExample[] = [
     category: "not-field",
   },
   {
-    title: "Use NIR for subtle edges",
-    slide: 34,
-    image: asset("training/slide-34.png"),
-    takeaway: "Flip to an infrared view when field interiors and boundaries are hard to separate in true color.",
-    category: "imagery",
-  },
-  {
     title: "Roads can be real boundaries",
     slide: 36,
     image: asset("training/slide-36.png"),

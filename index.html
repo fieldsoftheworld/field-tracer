@@ -64,7 +64,7 @@
         <p class="hint" id="draw-hint">Click around a field. Double-click to close it.</p>
 
         <details class="advanced-tools">
-          <summary>Correct a field or change imagery</summary>
+          <summary>Correct or edit a field</summary>
           <div class="edit-box">
           <div class="edit-box-heading">
             <span class="eyebrow">Edit fields</span>
@@ -94,6 +94,7 @@
           </label>
           <p class="hint">Click a field to select it. Vertex mode exposes draggable handles; click an edge to add a point. All fixes are previewed before replacing a field.</p>
         </div>
+        </details>
 
         <div class="validation-box" id="validation-box">
           <span class="validation-icon">✓</span>
@@ -101,23 +102,33 @@
         </div>
 
         <div class="section-rule"></div>
-        <p class="eyebrow">Field guide</p>
-        <button type="button" class="btn-outline btn-wide" id="guidance-button">Open labeling guide <span>↗</span></button>
-        <button type="button" class="btn-quiet btn-wide" id="zoom-task-button">Zoom to task</button>
-
-        <div class="section-rule"></div>
-        <div class="panel-heading compact">
-          <p class="eyebrow">Layers</p>
-        </div>
-        <label class="layer-toggle"><input type="checkbox" id="task-layer" checked /> <span>Task boundary</span></label>
-        <label class="layer-toggle"><input type="checkbox" id="snap-mode" checked /> <span>Snap to task and traced fields</span></label>
-        <div class="mosaic-control">
-          <div class="mosaic-heading"><span class="eyebrow">Sentinel-2 mosaic year</span><output id="mosaic-year-value">2025</output></div>
+        <p class="eyebrow">Imagery</p>
+        <label class="select-label" for="basemap-provider">Basemap
+          <select id="basemap-provider">
+            <option value="eox">Sentinel-2 · EOX (default)</option>
+            <option value="planet-monthly">Planet · monthly basemap</option>
+            <option value="planet-quarterly">Planet · quarterly basemap</option>
+          </select>
+        </label>
+        <div class="mosaic-control" id="eox-period">
+          <div class="mosaic-heading"><span class="eyebrow">Mosaic year</span><output id="mosaic-year-value">2025</output></div>
           <input id="mosaic-year" type="range" min="2016" max="2025" value="2025" step="1" aria-label="Sentinel-2 mosaic year" />
           <p class="hint">Annual cloudless mosaic; acquisition dates vary within the year.</p>
         </div>
-        <details class="image-tools">
-          <summary>Image comparison &amp; display</summary>
+        <div class="planet-period is-hidden" id="planet-period">
+          <div class="period-grid">
+            <label class="select-label" for="planet-year">Year
+              <select id="planet-year"></select>
+            </label>
+            <label class="select-label" for="planet-interval-value"><span id="planet-interval-label">Month</span>
+              <select id="planet-interval-value"></select>
+            </label>
+          </div>
+          <button type="button" class="btn-outline btn-wide" id="planet-key">Connect Planet imagery <span>↗</span></button>
+          <p class="hint" id="planet-status">Add a Planet API key to load monthly and quarterly basemaps.</p>
+        </div>
+        <details class="image-tools" id="image-tools">
+          <summary>Sentinel-2 comparison &amp; display</summary>
           <label class="layer-toggle"><input type="checkbox" id="comparison-layer" /> <span>Blend a second mosaic year</span></label>
           <label class="range-label" for="comparison-year">Comparison year <output id="comparison-year-value">2020</output><input id="comparison-year" type="range" min="2016" max="2025" value="2020" step="1" /></label>
           <button type="button" class="btn-quiet btn-wide" id="flicker-button">Flicker comparison</button>
@@ -126,15 +137,24 @@
           <label class="range-label" for="image-saturation">Saturation<input id="image-saturation" type="range" min="-1" max="0.5" value="-0.08" step="0.01" /></label>
           <p class="hint">Display-only controls. They never alter imagery or submitted geometry.</p>
         </details>
-        <div class="reference-layers">
-          <p class="eyebrow">Reference geometry</p>
+
+        <div class="section-rule"></div>
+        <p class="eyebrow">Layers</p>
+        <label class="layer-toggle"><input type="checkbox" id="task-layer" checked /> <span>Task boundary</span></label>
+        <label class="layer-toggle"><input type="checkbox" id="snap-mode" checked /> <span>Snap to task and traced fields</span></label>
+        <details class="reference-layers">
+          <summary>Reference geometry</summary>
           <label class="layer-toggle"><input type="checkbox" id="roads-layer" /> <span>Overture roads</span></label>
           <label class="layer-toggle"><input type="checkbox" id="waterways-layer" /> <span>Overture waterways</span></label>
           <label class="layer-toggle"><input type="checkbox" id="buildings-layer" /> <span>Overture buildings</span></label>
           <label class="layer-toggle"><input type="checkbox" id="reference-snap" /> <span>Snap to visible roads / waterways</span></label>
           <p class="hint">Reference only. These layers do not change your field polygons.</p>
-        </div>
         </details>
+
+        <div class="section-rule"></div>
+        <p class="eyebrow">Field guide</p>
+        <button type="button" class="btn-outline btn-wide" id="guidance-button">Open labeling guide <span>↗</span></button>
+        <button type="button" class="btn-quiet btn-wide" id="zoom-task-button">Zoom to task</button>
       </aside>
 
       <details class="right-panel glass-panel">
@@ -152,7 +172,6 @@
         <p class="eyebrow">Before upload</p>
         <div class="review-checklist">
           <label class="layer-toggle"><input type="checkbox" id="time-window-check" /> <span>Compared a second time window</span></label>
-          <label class="layer-toggle"><input type="checkbox" id="nir-check" /> <span>Checked NIR / alternate imagery</span></label>
           <label class="layer-toggle"><input type="checkbox" id="context-check" /> <span>Reviewed the wider task context</span></label>
         </div>
         <button type="button" class="btn-outline btn-wide" id="review-task-button">Review task before upload</button>
@@ -165,15 +184,10 @@
         </ul>
         <button type="button" class="btn-primary btn-wide upload-button" id="upload-button" disabled>Upload to OSM</button>
         <p class="changeset-result" id="changeset-result" aria-live="polite"></p>
-        <details class="imagery-access">
-          <summary>Optional Planet imagery</summary>
-          <button type="button" class="btn-outline btn-wide" id="planet-login">Connect Planet imagery <span>↗</span></button>
-          <button type="button" class="btn-quiet btn-wide" id="planet-key">Use a Planet key for this session</button>
-        </details>
         <button type="button" class="btn-quiet btn-wide" id="return-button">Return to HOT Tasking Manager</button>
       </details>
 
-      <div class="map-attribution">EOxCloudless · Sentinel-2 mosaic · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · Overture Maps · OSM reference © contributors</div>
+      <div class="map-attribution" id="map-attribution">EOxCloudless · Sentinel-2 mosaic · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · Overture Maps · OSM reference © contributors</div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <dialog class="guidance-dialog" id="guidance-dialog">
         <div class="dialog-heading">

@@ -177,10 +177,12 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
       type: "circle",
       source: "draft-vertices",
       paint: {
-        "circle-radius": ["case", ["boolean", ["get", "first"], false], 7, 4],
+        // The first vertex stays a little larger: it is the click/double-click
+        // target that closes the polygon. Interior points are kept small.
+        "circle-radius": ["case", ["boolean", ["get", "first"], false], 6, 3],
         "circle-color": ["case", ["boolean", ["get", "first"], false], "#c0d85b", "#b5e1e6"],
-        "circle-stroke-color": "#0b1f1c",
-        "circle-stroke-width": 1.5,
+        "circle-stroke-color": ["case", ["boolean", ["get", "first"], false], "#ff7f41", "#0b1f1c"],
+        "circle-stroke-width": ["case", ["boolean", ["get", "first"], false], 2, 1],
       },
     });
     map.addSource("vertices", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -272,6 +274,34 @@ export function setMosaicYear(map: MapLibreMap, year: number): void {
     const layer = `eox-basemap-${candidate}`;
     if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", candidate === year ? "visible" : "none");
   }
+}
+
+export function hideEoxBasemaps(map: MapLibreMap): void {
+  for (const year of mosaicYears) {
+    const layer = `eox-basemap-${year}`;
+    if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", "none");
+  }
+}
+
+const planetSourceId = "planet-basemap";
+const planetLayerId = "planet-basemap";
+
+// Swaps the Planet raster basemap. Pass undefined to remove it (e.g. when the
+// user switches back to Sentinel-2 or has not provided an API key yet). The
+// layer is inserted just below the Overture reference layers so the task and
+// field overlays always draw on top.
+export function setPlanetBasemap(map: MapLibreMap, tilesUrl: string | undefined): void {
+  if (map.getLayer(planetLayerId)) map.removeLayer(planetLayerId);
+  if (map.getSource(planetSourceId)) map.removeSource(planetSourceId);
+  if (!tilesUrl) return;
+  map.addSource(planetSourceId, {
+    type: "raster",
+    tiles: [tilesUrl],
+    tileSize: 256,
+    attribution: "Planet Labs PBC",
+  });
+  const before = map.getLayer("overture-water") ? "overture-water" : undefined;
+  map.addLayer({ id: planetLayerId, type: "raster", source: planetSourceId }, before);
 }
 
 export function setMosaicAppearance(

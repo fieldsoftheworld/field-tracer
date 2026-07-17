@@ -20,10 +20,12 @@ import {
 } from "./geometry";
 import {
   createMap,
+  hideEoxBasemaps,
   setComparisonYear,
   setDraftData,
   setMosaicAppearance,
   setMosaicYear,
+  setPlanetBasemap,
   setTaskData,
   toggleLayer,
   visibleReferenceLines,
@@ -69,7 +71,7 @@ let drawingMode: "polygon" | "circle" | "rectangle" = "polygon";
 let circleCenter: Position | undefined;
 let circleDragging = false;
 let osmConnected = false;
-let planetKeyPresent = false;
+let planetApiKey = "";
 let osmSession: OsmSession | undefined;
 let selectedFieldId: string | undefined;
 let selectedVertexIndex: number | undefined;
@@ -881,6 +883,87 @@ function updateAppearance(): void {
 for (const id of ["image-brightness", "image-contrast", "image-saturation"]) {
   $(id).addEventListener("input", updateAppearance);
 }
+
+const planetYears = [2025, 2024, 2023, 2022, 2021, 2020];
+const planetMonths: Array<[string, string]> = [
+  ["01", "January"],
+  ["02", "February"],
+  ["03", "March"],
+  ["04", "April"],
+  ["05", "May"],
+  ["06", "June"],
+  ["07", "July"],
+  ["08", "August"],
+  ["09", "September"],
+  ["10", "October"],
+  ["11", "November"],
+  ["12", "December"],
+];
+const planetQuarters: Array<[string, string]> = [
+  ["1", "Q1 · Jan–Mar"],
+  ["2", "Q2 · Apr–Jun"],
+  ["3", "Q3 · Jul–Sep"],
+  ["4", "Q4 · Oct–Dec"],
+];
+
+function basemapProvider(): string {
+  return ($("basemap-provider") as HTMLSelectElement).value;
+}
+
+function populatePlanetPeriods(): void {
+  const isPlanet = basemapProvider() !== "eox";
+  $("eox-period").classList.toggle("is-hidden", isPlanet);
+  $("planet-period").classList.toggle("is-hidden", !isPlanet);
+  $("image-tools").classList.toggle("is-hidden", isPlanet);
+  if (!isPlanet) return;
+  const quarterly = basemapProvider() === "planet-quarterly";
+  $("planet-interval-label").textContent = quarterly ? "Quarter" : "Month";
+  const yearSelect = $("planet-year") as HTMLSelectElement;
+  if (yearSelect.options.length === 0) {
+    yearSelect.innerHTML = planetYears.map((year) => `<option value="${year}">${year}</option>`).join("");
+  }
+  const intervals = quarterly ? planetQuarters : planetMonths;
+  ($("planet-interval-value") as HTMLSelectElement).innerHTML = intervals
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join("");
+}
+
+// Builds a Planet Basemaps XYZ tile template for the selected mosaic. Mosaic
+// names follow Planet's NICFI/Basemaps convention; exact names depend on the
+// account's basemap subscription. The API key stays in memory for the session.
+function planetTilesUrl(): string | undefined {
+  if (!planetApiKey) return undefined;
+  const year = ($("planet-year") as HTMLSelectElement).value;
+  const interval = ($("planet-interval-value") as HTMLSelectElement).value;
+  const mosaic =
+    basemapProvider() === "planet-quarterly"
+      ? `planet_medres_normalized_analytic_${year}q${interval}_mosaic`
+      : `planet_medres_normalized_analytic_${year}-${interval}_mosaic`;
+  return `https://tiles.planet.com/basemaps/v1/planet-tiles/${mosaic}/gmap/{z}/{x}/{y}.png?api_key=${planetApiKey}`;
+}
+
+const eoxAttribution =
+  'EOxCloudless · Sentinel-2 mosaic · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · Overture Maps · OSM reference © contributors';
+const planetAttribution =
+  'Planet Labs PBC basemap · <a href="https://www.planet.com/" target="_blank" rel="noreferrer">Planet</a> · Overture Maps · OSM reference © contributors';
+
+function applyBasemap(): void {
+  if (basemapProvider() === "eox") {
+    setPlanetBasemap(map, undefined);
+    setMosaicYear(map, Number(($("mosaic-year") as HTMLInputElement).value));
+    if (comparisonEnabled) setComparisonYear(map, comparisonYear, 0.5);
+    $("map-attribution").innerHTML = eoxAttribution;
+    return;
+  }
+  hideEoxBasemaps(map);
+  const url = planetTilesUrl();
+  setPlanetBasemap(map, url);
+  $("map-attribution").innerHTML = planetAttribution;
+  const quarterly = basemapProvider() === "planet-quarterly";
+  $("planet-status").textContent = planetApiKey
+    ? `Loaded Planet ${quarterly ? "quarterly" : "monthly"} basemap for the selected period.`
+    : "Add a Planet API key to load this basemap.";
+}
 $("roads-layer").addEventListener("change", (event) => {
   const visible = (event.target as HTMLInputElement).checked;
   toggleLayer(map, "overture-road-casing", visible);
@@ -896,13 +979,20 @@ $("buildings-layer").addEventListener("change", (event) => {
   toggleLayer(map, "overture-buildings", visible);
   toggleLayer(map, "overture-building-line", visible);
 });
-$("planet-login").addEventListener("click", () =>
-  toast("Planet OAuth will be enabled after the tile-auth feasibility check"),
-);
+$("basemap-provider").addEventListener("change", () => {
+  populatePlanetPeriods();
+  applyBasemap();
+});
+$("planet-year").addEventListener("change", applyBasemap);
+$("planet-interval-value").addEventListener("change", applyBasemap);
 $("planet-key").addEventListener("click", () => {
-  const key = window.prompt("Paste a Planet API key for this browser session. It will not be saved.");
-  planetKeyPresent = Boolean(key?.trim());
-  if (planetKeyPresent) toast("Planet key held for this session only — tile adapter pending");
+  const key = window.prompt(
+    "Paste a Planet API key for this browser session. It is held in memory only and never saved.",
+  );
+  if (key === null) return;
+  planetApiKey = key.trim();
+  toast(planetApiKey ? "Planet key held for this session only" : "Planet key cleared");
+  applyBasemap();
 });
 $("upload-button").addEventListener("click", () => void uploadToOsm());
 $("review-task-button").addEventListener("click", () => {
@@ -925,7 +1015,7 @@ $("return-button").addEventListener("click", () => window.history.back());
 
 updateEditingControls();
 updateSummary();
-void planetKeyPresent;
+populatePlanetPeriods();
 
 function acceptOsmSession(session: OsmSession): void {
   osmSession = session;
