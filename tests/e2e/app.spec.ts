@@ -33,7 +33,9 @@ test.describe("Field Tracer editor", () => {
 
     await page.getByRole("button", { name: "Drawing field…" }).click();
     await expect(page.getByRole("button", { name: "Draw field polygon" })).toBeVisible();
-    await expect(page.getByText("Click around a field. Double-click to close it.")).toBeVisible();
+    await expect(
+      page.getByText("Click around a field. Click the first point or double-click to close it."),
+    ).toBeVisible();
   });
 
   test("offers circular field drawing", async ({ page }) => {
@@ -81,7 +83,9 @@ test.describe("Field Tracer editor", () => {
 
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByText("Click around a field. Double-click to close it.")).toBeVisible();
+    await expect(
+      page.getByText("Click around a field. Click the first point or double-click to close it."),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Undo point" })).toBeDisabled();
   });
 
@@ -134,6 +138,25 @@ test.describe("Field Tracer editor", () => {
     await expect(page.locator("#toast")).toContainText("Needs another pass");
     await expect(page.locator("#toast")).toContainText("below 400 m²");
     await expect(page.locator("#field-count")).toHaveText("0");
+  });
+
+  test("closes a polygon by clicking the first point without a zero-length edge", async ({ page }) => {
+    await page.getByRole("button", { name: "Draw field polygon" }).click();
+    const map = page.locator("#map .maplibregl-canvas");
+    const box = await map.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+
+    const centerX = box.x + box.width * 0.5;
+    const centerY = box.y + box.height * 0.5;
+    await page.mouse.click(centerX - 30, centerY - 30);
+    await page.mouse.click(centerX + 30, centerY - 30);
+    await page.mouse.click(centerX + 30, centerY + 30);
+    // Clicking the first vertex again closes the polygon — no double-click, no 0 m edge.
+    await page.mouse.click(centerX - 30, centerY - 30);
+
+    await expect(page.locator("#toast")).toContainText("Field added");
+    await expect(page.locator("#field-count")).toHaveText("1");
   });
 
   test("requires OAuth configuration before starting OSM login", async ({ page }) => {

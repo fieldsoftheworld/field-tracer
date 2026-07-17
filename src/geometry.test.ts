@@ -4,6 +4,7 @@ import {
   circleCoordinates,
   cleanField,
   createFieldFeature,
+  dropRepeatedPoints,
   hasSelfIntersection,
   MIN_AREA_M2,
   MIN_EDGE_M,
@@ -62,6 +63,31 @@ describe("field geometry", () => {
     expect(ring).toHaveLength(49);
     expect(ring[0]).toEqual(ring[ring.length - 1]);
     expect(polygonAreaM2(ring)).toBeGreaterThan(MIN_AREA_M2);
+  });
+
+  test("drops a duplicated closing point so a double-click does not leave a zero-length edge", () => {
+    // A double-click to close fires two clicks at the same spot, duplicating the last vertex.
+    const drawn = [
+      [-88.18, 40.18],
+      [-88.175, 40.18],
+      [-88.175, 40.175],
+      [-88.175, 40.175],
+    ];
+    const cleaned = dropRepeatedPoints(drawn);
+    expect(cleaned).toHaveLength(3);
+
+    const field = createFieldFeature(cleaned, "field-1");
+    expect(shortestEdgeM(field.geometry.coordinates[0])).toBeGreaterThan(MIN_EDGE_M);
+    expect(validateField(field, task, emptyFields).some((error) => error.includes("shortest edge"))).toBe(false);
+  });
+
+  test("keeps distinct nearby points that form a real short edge", () => {
+    const points = [
+      [-88.18, 40.18],
+      [-88.17999, 40.18],
+      [-88.17999, 40.17999],
+    ];
+    expect(dropRepeatedPoints(points)).toHaveLength(3);
   });
 
   test("rejects a field below the minimum area", () => {

@@ -171,6 +171,18 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
       source: "draft",
       paint: { "line-color": "#b5e1e6", "line-width": 3, "line-dasharray": [1, 1] },
     });
+    map.addSource("draft-vertices", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "draft-vertices",
+      type: "circle",
+      source: "draft-vertices",
+      paint: {
+        "circle-radius": ["case", ["boolean", ["get", "first"], false], 7, 4],
+        "circle-color": ["case", ["boolean", ["get", "first"], false], "#c0d85b", "#b5e1e6"],
+        "circle-stroke-color": "#0b1f1c",
+        "circle-stroke-width": 1.5,
+      },
+    });
     map.addSource("vertices", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
       id: vertexLayerId,
@@ -228,15 +240,25 @@ export function setTaskData(
   });
 }
 
-export function setDraftData(map: MapLibreMap, coordinates: number[][]): void {
+export function setDraftData(map: MapLibreMap, coordinates: number[][], vertices: number[][] = []): void {
   const source = map.getSource("draft") as maplibregl.GeoJSONSource | undefined;
-  if (!source) return;
-  source.setData({
+  if (source) {
+    source.setData({
+      type: "FeatureCollection",
+      features:
+        coordinates.length > 1
+          ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }]
+          : [],
+    });
+  }
+  const vertexSource = map.getSource("draft-vertices") as maplibregl.GeoJSONSource | undefined;
+  vertexSource?.setData({
     type: "FeatureCollection",
-    features:
-      coordinates.length > 1
-        ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }]
-        : [],
+    features: vertices.map((coordinate, index) => ({
+      type: "Feature" as const,
+      properties: { first: index === 0 },
+      geometry: { type: "Point" as const, coordinates: coordinate },
+    })),
   });
 }
 

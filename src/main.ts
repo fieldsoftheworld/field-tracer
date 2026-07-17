@@ -9,6 +9,7 @@ import {
   circleCoordinates,
   cleanField,
   createFieldFeature,
+  dropRepeatedPoints,
   fieldWarnings,
   fixSelfCrossingField,
   polygonAreaM2,
@@ -86,6 +87,9 @@ let uploadedChangesetUrl: string | undefined;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+// Clicking within this screen radius of the first vertex closes the polygon.
+const CLOSE_SNAP_PX = 14;
+
 const isOauthPopup = isOauthPopupCallback(window.location.search);
 if (isOauthPopup) {
   notifyOauthPopup();
@@ -117,8 +121,12 @@ const map = createMap("map", task, {
       return;
     }
     if (drawingMode === "circle") return;
+    if (draft.length >= 3 && withinCloseThreshold(event.point, draft[0])) {
+      finishDraft();
+      return;
+    }
     draft.push(snappedCoordinate([event.lngLat.lng, event.lngLat.lat]));
-    setDraftData(map, draft as number[][]);
+    setDraftData(map, draft as number[][], draft as number[][]);
     updateEditingControls();
   },
   onMapDoubleClick: () => finishDraft(),
@@ -174,6 +182,11 @@ function toast(message: string): void {
 
 function selectedField(): FieldCollection["features"][number] | undefined {
   return fields.features.find((field) => field.properties.id === selectedFieldId);
+}
+
+function withinCloseThreshold(screenPoint: maplibregl.Point, firstVertex: Position): boolean {
+  const projected = map.project(firstVertex as [number, number]);
+  return Math.hypot(projected.x - screenPoint.x, projected.y - screenPoint.y) <= CLOSE_SNAP_PX;
 }
 
 function snappedCoordinate(coordinate: Position): Position {
@@ -298,7 +311,7 @@ function updateEditingControls(): void {
   $("selection-note").textContent = selectedFieldId ? `Selected ${selectedFieldId}` : "None selected";
   const selected = selectedField();
   $("vertex-edit-mode").toggleAttribute("disabled", !selected);
-  $("vertex-edit-mode").toggleAttribute("checked", vertexEditMode);
+  ($("vertex-edit-mode") as HTMLInputElement).checked = vertexEditMode;
   $("delete-vertex-button").toggleAttribute("disabled", selectedVertexIndex === undefined || !selected);
   $("clean-field-button").toggleAttribute("disabled", !selected);
   $("repair-field-button").toggleAttribute("disabled", !selected);
@@ -314,12 +327,14 @@ function updateEditingControls(): void {
       ? "Drag from the field center to set the radius. Release to finish."
       : drawingMode === "rectangle"
         ? "Drag from one field corner to the opposite corner. Release to finish."
-        : `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
+        : draft.length >= 3
+          ? `${draft.length} points · click the first point or double-click to close`
+          : `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
     : drawingMode === "circle"
       ? "Choose Circle, then drag from the field center to set the radius."
       : drawingMode === "rectangle"
         ? "Choose Rectangle, then drag between opposite field corners."
-        : "Click around a field. Double-click to close it.";
+        : "Click around a field. Click the first point or double-click to close it.";
 }
 
 function resetDraft(): void {
@@ -334,13 +349,15 @@ function resetDraft(): void {
 function undoDraftPoint(): void {
   if (!drawing || draft.length === 0) return;
   draft.pop();
-  setDraftData(map, draft as number[][]);
+  setDraftData(map, draft as number[][], draft as number[][]);
   updateEditingControls();
 }
 
 function finishDraft(): void {
-  if (!drawing || draft.length < 3) return;
-  const feature = createFieldFeature(draft, `field-${fields.features.length + 1}`);
+  if (!drawing) return;
+  const points = dropRepeatedPoints(draft);
+  if (points.length < 3) return;
+  const feature = createFieldFeature(points, `field-${fields.features.length + 1}`);
   const errors = validateField(feature, task, fields);
   if (errors.length > 0) {
     toast(`Needs another pass: ${errors.join(" · ")}`);
@@ -577,11 +594,11 @@ async function uploadToOsm(): Promise<void> {
       taskId: task.taskId,
     });
     uploadedChangesetUrl = result.changesetUrl;
+    button.textContent = "Uploaded to OSM";
     $("changeset-result").innerHTML =
       `Uploaded as <a href="${result.changesetUrl}" target="_blank" rel="noreferrer">OSM changeset ${result.changesetId} ↗</a>`;
-    $("session-copy").textContent =
-      `Uploaded ${fields.features.length} field${fields.features.length === 1 ? "" : "s"} · ready to return to HOT TM`;
-    $("status-copy").textContent = "Uploaded to OpenStreetMap · return to task";
+    $("status-copy").textContent =
+      `Uploaded ${fields.features.length} field${fields.features.length === 1 ? "" : "s"} to OpenStreetMap · return to task`;
     toast("Upload complete · review the changeset before marking the task mapped");
   } catch (error) {
     button.disabled = false;
@@ -802,9 +819,6 @@ if (localStorage.getItem("field-tracer-tutorial-seen") !== "true") {
   window.setTimeout(() => ($("guidance-dialog") as HTMLDialogElement).showModal(), 500);
 }
 $("osm-login").addEventListener("click", () => void connectOsm());
-$("osm-layer").addEventListener("change", (event) =>
-  toggleLayer(map, "task-boundary", (event.target as HTMLInputElement).checked),
-);
 $("task-layer").addEventListener("change", (event) => {
   const visible = (event.target as HTMLInputElement).checked;
   toggleLayer(map, "task-boundary", visible);

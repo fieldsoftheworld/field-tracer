@@ -61,6 +61,18 @@ export function shortestEdgeM(ring: Position[]): number {
   return shortest;
 }
 
+// Drops points that coincide with their predecessor. A double-click to close a
+// polygon fires two clicks at the same spot, which would otherwise leave a
+// zero-length final edge and fail the minimum-edge check on every field.
+export function dropRepeatedPoints(points: Position[], minMeters = 0.5): Position[] {
+  const result: Position[] = [];
+  for (const point of points) {
+    const previous = result[result.length - 1];
+    if (!previous || distanceM(previous, point) >= minMeters) result.push(point);
+  }
+  return result;
+}
+
 export function pointInRing(point: Position, ring: Position[]): boolean {
   let inside = false;
   for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
