@@ -64,6 +64,9 @@ polygon before applying the same area, edge, boundary, and overlap checks. Use
 Polygon mode when the field is not genuinely circular or has a meaningful irregular
 edge.
 
+Use **Rectangle** only where four straight boundaries are genuinely visible. It is a
+faster starting geometry, not permission to square off an irregular field.
+
 ## Editing safeguards
 
 - While drawing, use **Undo point** or `⌘/Ctrl+Z` to remove the most recent point.
@@ -71,6 +74,18 @@ edge.
 - Click a completed field to select it, then use **Remove selected field** or
   `Delete`/`Backspace` to remove it before upload.
 - **Undo last field** is a shortcut for removing the most recently completed field.
+- In **Move or insert vertices** mode, drag a visible handle to refine a corner or
+  click a field edge to add one. Select the resulting handle, then use **Delete
+  vertex** to remove it. Snapping can align points to the task boundary and
+  campaign-created fields; inspect every snapped point against the imagery.
+- **Clean geometry** removes duplicate/noisy coordinates and applies an intentionally
+  tiny simplification. **Repair crossing** is allowed only when it yields one field.
+  **Trim overlap** is allowed only when it leaves one continuous field. Each action
+  replaces the highlighted local geometry and must be visually checked before upload.
+- **Split selected field with a line** is for a clearly visible internal boundary.
+  Draw a line all the way across the selected field; the editor creates two polygons
+  only when both meet the normal field checks. Do not merge distinct fields merely
+  because they touch.
 - Removing a field only changes the current browser session; nothing is sent to OSM
   until upload is explicitly completed.
 
@@ -86,6 +101,9 @@ edge.
 - The Sentinel-2 **Mosaic year** slider switches between annual EOX cloudless
   mosaics. It is a year-level comparison, not a single acquisition date; dates may
   vary within each mosaic.
+- **Blend a second mosaic year** and **Flicker comparison** make temporal changes
+  easier to inspect. Brightness, contrast, and saturation controls are display-only;
+  they never modify source imagery or field coordinates.
 - Optional Overture roads, waterways, and buildings are reference geometry only.
   They can help explain an edge or obstacle but must not be copied automatically or
   treated as authoritative field boundaries.
@@ -149,6 +167,11 @@ The downstream extraction workflow should be able to filter by:
 Validators may review contributions through Tasking Manager. Any validator edits
 must remain distinguishable from the original mapper contribution through OSM
 history.
+
+Use **Review task before upload** to surface local geometry warnings, then inspect
+coverage and ambiguity. **Mark task reviewed — no fields visible** records an
+explicit local decision for an empty task; the mapper must still set the actual task
+status in Tasking Manager.
 
 ## Imagery
 

@@ -47,6 +47,7 @@
           <select id="drawing-mode">
             <option value="polygon">Polygon — trace the field edge</option>
             <option value="circle">Circle — drag from center to radius</option>
+            <option value="rectangle">Rectangle — drag corner to corner</option>
           </select>
         </label>
         <button type="button" class="btn-primary btn-wide" id="draw-button">Draw field polygon</button>
@@ -64,6 +65,16 @@
           </div>
           <button type="button" class="btn-danger btn-wide" id="remove-field-button" disabled>Remove selected field</button>
           <button type="button" class="btn-quiet btn-wide" id="undo-field-button" disabled>Undo last field</button>
+          <label class="layer-toggle"><input type="checkbox" id="vertex-edit-mode" disabled /> <span>Move or insert vertices</span></label>
+          <div class="edit-actions">
+            <button type="button" class="btn-quiet" id="delete-vertex-button" disabled>Delete vertex</button>
+            <button type="button" class="btn-quiet" id="clean-field-button" disabled>Clean geometry</button>
+          </div>
+          <div class="edit-actions">
+            <button type="button" class="btn-quiet" id="repair-field-button" disabled>Repair crossing</button>
+            <button type="button" class="btn-quiet" id="trim-field-button" disabled>Trim overlap</button>
+          </div>
+          <button type="button" class="btn-quiet btn-wide" id="split-field-button" disabled>Split selected field with a line</button>
           <button type="button" class="btn-outline btn-wide" id="review-field-button" disabled>Mark for review</button>
           <label class="select-label" for="review-reason">Review reason
             <select id="review-reason" disabled>
@@ -73,7 +84,7 @@
               <option value="imagery">Imagery problem</option>
             </select>
           </label>
-          <p class="hint">Click a field on the map to select it. Delete or Backspace removes it.</p>
+          <p class="hint">Click a field to select it. Vertex mode exposes draggable handles; click an edge to add a point. All fixes are previewed before replacing a field.</p>
         </div>
 
         <div class="validation-box" id="validation-box">
@@ -93,11 +104,22 @@
         </div>
         <label class="layer-toggle"><input type="checkbox" id="osm-layer" checked /> <span>Reference context</span></label>
         <label class="layer-toggle"><input type="checkbox" id="task-layer" checked /> <span>Task boundary</span></label>
+        <label class="layer-toggle"><input type="checkbox" id="snap-mode" checked /> <span>Snap to task and traced fields</span></label>
         <div class="mosaic-control">
           <div class="mosaic-heading"><span class="eyebrow">Sentinel-2 mosaic year</span><output id="mosaic-year-value">2025</output></div>
           <input id="mosaic-year" type="range" min="2016" max="2025" value="2025" step="1" aria-label="Sentinel-2 mosaic year" />
           <p class="hint">Annual cloudless mosaic; acquisition dates vary within the year.</p>
         </div>
+        <details class="image-tools">
+          <summary>Image comparison &amp; display</summary>
+          <label class="layer-toggle"><input type="checkbox" id="comparison-layer" /> <span>Blend a second mosaic year</span></label>
+          <label class="range-label" for="comparison-year">Comparison year <output id="comparison-year-value">2020</output><input id="comparison-year" type="range" min="2016" max="2025" value="2020" step="1" /></label>
+          <button type="button" class="btn-quiet btn-wide" id="flicker-button">Flicker comparison</button>
+          <label class="range-label" for="image-brightness">Brightness<input id="image-brightness" type="range" min="0.35" max="0.65" value="0.5" step="0.01" /></label>
+          <label class="range-label" for="image-contrast">Contrast<input id="image-contrast" type="range" min="-0.25" max="0.4" value="0.08" step="0.01" /></label>
+          <label class="range-label" for="image-saturation">Saturation<input id="image-saturation" type="range" min="-1" max="0.5" value="-0.08" step="0.01" /></label>
+          <p class="hint">Display-only controls. They never alter imagery or submitted geometry.</p>
+        </details>
         <div class="reference-layers">
           <p class="eyebrow">Reference geometry</p>
           <label class="layer-toggle"><input type="checkbox" id="roads-layer" /> <span>Overture roads</span></label>
@@ -128,6 +150,9 @@
           <label class="layer-toggle"><input type="checkbox" id="nir-check" /> <span>Checked NIR / alternate imagery</span></label>
           <label class="layer-toggle"><input type="checkbox" id="context-check" /> <span>Reviewed the wider task context</span></label>
         </div>
+        <button type="button" class="btn-outline btn-wide" id="review-task-button">Review task before upload</button>
+        <button type="button" class="btn-quiet btn-wide" id="no-fields-button">Mark task reviewed — no fields visible</button>
+        <p class="hint" id="qa-summary">Add a field to see the geometry report.</p>
         <ul class="check-list">
           <li>One polygon per annual-crop field</li>
           <li>Do not edit existing farmland</li>

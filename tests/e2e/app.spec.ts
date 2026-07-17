@@ -34,6 +34,25 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByText("Drag from the field center to set the radius. Release to finish.")).toBeVisible();
   });
 
+  test("offers rectangular fields, snapping, comparison, and conservative geometry tools", async ({ page }) => {
+    await page.getByLabel("Shape").selectOption("rectangle");
+    await expect(page.getByRole("button", { name: "Draw rectangular field" })).toBeVisible();
+    await expect(page.getByLabel("Snap to task and traced fields")).toBeChecked();
+    await page.getByRole("button", { name: "Draw rectangular field" }).click();
+    await expect(page.getByText("Drag from one field corner to the opposite corner. Release to finish.")).toBeVisible();
+
+    await page.getByLabel("Blend a second mosaic year").check();
+    await page.locator("#comparison-year").evaluate((element: HTMLInputElement) => {
+      element.value = "2021";
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await expect(page.locator("#comparison-year-value")).toHaveText("2021");
+    await expect(page.getByRole("button", { name: "Flicker comparison" })).toBeVisible();
+    await expect(page.getByLabel("Brightness")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review task before upload" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark task reviewed — no fields visible" })).toBeVisible();
+  });
+
   test("undoes a point and cancels the current polygon", async ({ page }) => {
     await page.getByRole("button", { name: "Draw field polygon" }).click();
     const map = page.locator("#map .maplibregl-canvas");
@@ -58,6 +77,8 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByRole("button", { name: "Remove selected field" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Undo last field" })).toBeDisabled();
     await expect(page.getByText("None selected")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clean geometry" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Split selected field with a line" })).toBeDisabled();
   });
 
   test("opens the concise labeling guide and imagery checklist", async ({ page }) => {

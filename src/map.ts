@@ -8,6 +8,7 @@ const taskLayerId = "task-boundary";
 const fieldLayerId = "field-fill";
 const fieldLineId = "field-line";
 const draftLayerId = "draft-line";
+const vertexLayerId = "field-vertices";
 const mosaicYears = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] as const;
 const overtureRelease = "2026-06-17.0";
 
@@ -170,6 +171,18 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
       source: "draft",
       paint: { "line-color": "#b5e1e6", "line-width": 3, "line-dasharray": [1, 1] },
     });
+    map.addSource("vertices", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: vertexLayerId,
+      type: "circle",
+      source: "vertices",
+      paint: {
+        "circle-radius": 5,
+        "circle-color": "#ffffff",
+        "circle-stroke-color": "#ff7f41",
+        "circle-stroke-width": 2,
+      },
+    });
     setTaskData(map, task, []);
   });
 
@@ -186,6 +199,7 @@ export function setTaskData(
   task: TaskContext,
   fields: FieldFeature[],
   selectedFieldId?: string,
+  editingVertices = false,
 ): void {
   const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
   if (!source) return;
@@ -199,6 +213,19 @@ export function setTaskData(
     },
   }));
   source.setData({ type: "FeatureCollection", features: [taskFeature, ...fieldFeatures] });
+  const vertexSource = map.getSource("vertices") as maplibregl.GeoJSONSource | undefined;
+  const selected = fields.find((field) => field.properties.id === selectedFieldId);
+  vertexSource?.setData({
+    type: "FeatureCollection",
+    features:
+      editingVertices && selected
+        ? selected.geometry.coordinates[0].slice(0, -1).map((coordinate, index) => ({
+            type: "Feature" as const,
+            properties: { index },
+            geometry: { type: "Point" as const, coordinates: coordinate },
+          }))
+        : [],
+  });
 }
 
 export function setDraftData(map: MapLibreMap, coordinates: number[][]): void {
@@ -222,5 +249,31 @@ export function setMosaicYear(map: MapLibreMap, year: number): void {
   for (const candidate of mosaicYears) {
     const layer = `eox-basemap-${candidate}`;
     if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", candidate === year ? "visible" : "none");
+  }
+}
+
+export function setMosaicAppearance(
+  map: MapLibreMap,
+  options: { brightness: number; contrast: number; saturation: number; opacity: number },
+): void {
+  for (const year of mosaicYears) {
+    const layer = `eox-basemap-${year}`;
+    if (!map.getLayer(layer)) continue;
+    map.setPaintProperty(layer, "raster-brightness-min", Math.max(0, options.brightness - 0.5));
+    map.setPaintProperty(layer, "raster-brightness-max", Math.min(1, options.brightness + 0.5));
+    map.setPaintProperty(layer, "raster-contrast", options.contrast);
+    map.setPaintProperty(layer, "raster-saturation", options.saturation);
+    map.setPaintProperty(layer, "raster-opacity", options.opacity);
+  }
+}
+
+export function setComparisonYear(map: MapLibreMap, year: number | undefined, opacity = 0.5): void {
+  for (const candidate of mosaicYears) {
+    const layer = `eox-basemap-${candidate}`;
+    if (!map.getLayer(layer)) continue;
+    if (candidate === year) {
+      map.setLayoutProperty(layer, "visibility", "visible");
+      map.setPaintProperty(layer, "raster-opacity", opacity);
+    }
   }
 }

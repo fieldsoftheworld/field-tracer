@@ -191,6 +191,8 @@ h2 {
   top: 100px;
   z-index: 3;
   width: 300px;
+  max-height: calc(100vh - 124px);
+  overflow-y: auto;
   padding: 18px;
 }
 
@@ -340,6 +342,18 @@ button:disabled {
   margin: 7px 0;
 }
 
+.edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.edit-actions .btn-quiet {
+  padding: 8px 6px;
+  border: 1px solid rgba(181, 225, 230, 0.15);
+}
+
 .draw-actions .btn-quiet:first-child {
   border-right-color: var(--line);
   border-radius: 9px 0 0 9px;
@@ -461,6 +475,43 @@ select:disabled {
 #mosaic-year {
   width: 100%;
   margin: 12px 0 0;
+  accent-color: var(--accent);
+}
+
+.image-tools {
+  margin-top: 11px;
+  padding: 10px;
+  border: 1px solid rgba(181, 225, 230, 0.2);
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.image-tools summary {
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.range-label {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.range-label output {
+  float: right;
+  color: var(--accent);
+}
+
+.range-label input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
   accent-color: var(--accent);
 }
 

@@ -2,11 +2,15 @@ import { describe, expect, test } from "bun:test";
 import type { Feature, Polygon } from "geojson";
 import {
   circleCoordinates,
+  cleanField,
   createFieldFeature,
+  hasSelfIntersection,
   MIN_AREA_M2,
   MIN_EDGE_M,
   polygonAreaM2,
   shortestEdgeM,
+  snapPoint,
+  trimFieldOverlaps,
   validateField,
 } from "./geometry";
 import type { FieldCollection, TaskContext } from "./types";
@@ -112,5 +116,48 @@ describe("field geometry", () => {
     const existingFields: FieldCollection = { type: "FeatureCollection", features: [existing] };
 
     expect(validateField(candidate, task, existingFields)).toContain("polygon overlaps another campaign field");
+  });
+
+  test("detects a self-crossing field and keeps a deterministic cleanup browser-side", () => {
+    const crossing = createFieldFeature(
+      [
+        [-88.18, 40.18],
+        [-88.175, 40.175],
+        [-88.175, 40.18],
+        [-88.18, 40.175],
+      ],
+      "crossing-field",
+    );
+
+    expect(hasSelfIntersection(crossing.geometry.coordinates[0])).toBe(true);
+    expect(validateField(crossing, task, emptyFields)).toContain("polygon crosses itself");
+    expect(cleanField(crossing)).toBeDefined();
+  });
+
+  test("snaps a draft point to a known field edge and trims overlap only when it remains one polygon", () => {
+    const existing = createFieldFeature(
+      [
+        [-88.18, 40.18],
+        [-88.175, 40.18],
+        [-88.175, 40.175],
+        [-88.18, 40.175],
+      ],
+      "existing-field",
+    );
+    const candidate = createFieldFeature(
+      [
+        [-88.178, 40.178],
+        [-88.173, 40.178],
+        [-88.173, 40.173],
+        [-88.178, 40.173],
+      ],
+      "candidate-field",
+    );
+
+    const snapped = snapPoint([-88.176, 40.177], [existing.geometry.coordinates[0]], 200);
+    expect(snapped[0]).toBeCloseTo(-88.175, 5);
+    const trimmed = trimFieldOverlaps(candidate, { type: "FeatureCollection", features: [existing, candidate] });
+    expect(trimmed).toBeDefined();
+    expect(trimmed?.properties.areaM2).toBeLessThan(candidate.properties.areaM2);
   });
 });

@@ -1,8 +1,30 @@
 import "maplibre-gl/dist/maplibre-gl.css";
+import { featureCollection, lineString } from "@turf/helpers";
+import polygonToLine from "@turf/polygon-to-line";
+import polygonize from "@turf/polygonize";
 import type { Feature, Polygon, Position } from "geojson";
 import maplibregl from "maplibre-gl";
-import { circleCoordinates, createFieldFeature, polygonAreaM2, validateField } from "./geometry";
-import { createMap, setDraftData, setMosaicYear, setTaskData, toggleLayer } from "./map";
+import {
+  circleCoordinates,
+  cleanField,
+  createFieldFeature,
+  fieldWarnings,
+  fixSelfCrossingField,
+  polygonAreaM2,
+  rectangleCoordinates,
+  snapPoint,
+  trimFieldOverlaps,
+  validateField,
+} from "./geometry";
+import {
+  createMap,
+  setComparisonYear,
+  setDraftData,
+  setMosaicAppearance,
+  setMosaicYear,
+  setTaskData,
+  toggleLayer,
+} from "./map";
 import { beginOsmLogin, completeOsmLogin, type OsmSession } from "./osm";
 import { trainingCategories, trainingExamples, trainingVideos } from "./training";
 import type { FieldCollection, TaskContext } from "./types";
@@ -33,13 +55,22 @@ const task: TaskContext = {
 const fields: FieldCollection = { type: "FeatureCollection", features: [] };
 let drawing = false;
 let draft: Position[] = [];
-let drawingMode: "polygon" | "circle" = "polygon";
+let drawingMode: "polygon" | "circle" | "rectangle" = "polygon";
 let circleCenter: Position | undefined;
 let circleDragging = false;
 let osmConnected = false;
 let planetKeyPresent = false;
 let osmSession: OsmSession | undefined;
 let selectedFieldId: string | undefined;
+let selectedVertexIndex: number | undefined;
+let vertexEditMode = false;
+let draggingVertex = false;
+let snapEnabled = true;
+let comparisonEnabled = false;
+let comparisonYear = 2020;
+let flickerTimer: number | undefined;
+let splitMode = false;
+let splitDraft: Position[] = [];
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -57,35 +88,65 @@ if (isOauthPopup) {
 
 const map = createMap("map", task, {
   onMapClick: (event) => {
+    if (splitMode) {
+      splitDraft.push([event.lngLat.lng, event.lngLat.lat]);
+      setDraftData(map, splitDraft as number[][]);
+      if (splitDraft.length === 2) splitSelectedField();
+      return;
+    }
+    if (vertexEditMode && selectedFieldId) {
+      insertVertexAt(event.point, [event.lngLat.lng, event.lngLat.lat]);
+      return;
+    }
     if (!drawing) {
       const hit = map.queryRenderedFeatures(event.point, { layers: ["field-fill"] })[0];
       selectedFieldId = typeof hit?.properties?.id === "string" ? hit.properties.id : undefined;
-      setTaskData(map, task, fields.features, selectedFieldId);
+      selectedVertexIndex = undefined;
+      refreshMap();
       updateEditingControls();
       return;
     }
     if (drawingMode === "circle") return;
-    draft.push([event.lngLat.lng, event.lngLat.lat]);
+    draft.push(snappedCoordinate([event.lngLat.lng, event.lngLat.lat]));
     setDraftData(map, draft as number[][]);
     updateEditingControls();
   },
   onMapDoubleClick: () => finishDraft(),
   onMapMouseDown: (event) => {
-    if (!drawing || drawingMode !== "circle") return;
-    circleCenter = [event.lngLat.lng, event.lngLat.lat];
+    if (vertexEditMode && selectedFieldId) {
+      beginVertexDrag(event.point);
+      return;
+    }
+    if (!drawing || drawingMode === "polygon") return;
+    circleCenter = snappedCoordinate([event.lngLat.lng, event.lngLat.lat]);
     circleDragging = true;
-    draft = circleCoordinates(circleCenter, circleCenter);
+    draft =
+      drawingMode === "circle"
+        ? circleCoordinates(circleCenter, circleCenter)
+        : rectangleCoordinates(circleCenter, circleCenter);
     setDraftData(map, draft as number[][]);
     updateEditingControls();
   },
   onMapMouseMove: (event) => {
+    if (draggingVertex) {
+      moveSelectedVertex([event.lngLat.lng, event.lngLat.lat]);
+      return;
+    }
     if (!circleDragging || !circleCenter) return;
-    draft = circleCoordinates(circleCenter, [event.lngLat.lng, event.lngLat.lat]);
+    const edge = snappedCoordinate([event.lngLat.lng, event.lngLat.lat]);
+    draft = drawingMode === "circle" ? circleCoordinates(circleCenter, edge) : rectangleCoordinates(circleCenter, edge);
     setDraftData(map, draft as number[][]);
   },
   onMapMouseUp: (event) => {
+    if (draggingVertex) {
+      draggingVertex = false;
+      map.dragPan.enable();
+      updateEditingControls();
+      return;
+    }
     if (!circleDragging || !circleCenter) return;
-    draft = circleCoordinates(circleCenter, [event.lngLat.lng, event.lngLat.lat]);
+    const edge = snappedCoordinate([event.lngLat.lng, event.lngLat.lat]);
+    draft = drawingMode === "circle" ? circleCoordinates(circleCenter, edge) : rectangleCoordinates(circleCenter, edge);
     circleDragging = false;
     setDraftData(map, draft as number[][]);
     finishDraft();
@@ -101,19 +162,134 @@ function toast(message: string): void {
   window.setTimeout(() => element.classList.remove("is-visible"), 3200);
 }
 
+function selectedField(): FieldCollection["features"][number] | undefined {
+  return fields.features.find((field) => field.properties.id === selectedFieldId);
+}
+
+function snappedCoordinate(coordinate: Position): Position {
+  if (!snapEnabled) return coordinate;
+  return snapPoint(coordinate, [
+    task.boundary.geometry.coordinates[0],
+    ...fields.features.map((field) => field.geometry.coordinates[0]),
+  ]);
+}
+
+function refreshMap(): void {
+  setTaskData(map, task, fields.features, selectedFieldId, vertexEditMode);
+}
+
+function updateQaSummary(): void {
+  const warnings = fields.features.flatMap((field) => fieldWarnings(field, task, fields));
+  const reviewCount = fields.features.filter((field) => field.properties.needsReview).length;
+  $("qa-summary").textContent = warnings.length
+    ? `${warnings.length} geometry warning${warnings.length === 1 ? "" : "s"} · resolve before upload`
+    : reviewCount
+      ? `${reviewCount} field${reviewCount === 1 ? "" : "s"} marked for review · geometry checks pass`
+      : fields.features.length
+        ? "Geometry checks pass · inspect imagery and task coverage before upload."
+        : "Add a field to see the geometry report.";
+}
+
+function syncComparison(): void {
+  setMosaicYear(map, Number(($("mosaic-year") as HTMLInputElement).value));
+  if (comparisonEnabled) setComparisonYear(map, comparisonYear, 0.5);
+}
+
+function nearestVertex(point: maplibregl.Point): number | undefined {
+  const field = selectedField();
+  if (!field) return undefined;
+  let nearest: number | undefined;
+  let distance = 14;
+  for (const [index, coordinate] of field.geometry.coordinates[0].slice(0, -1).entries()) {
+    const candidate = map.project(coordinate as [number, number]);
+    const candidateDistance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+    if (candidateDistance < distance) {
+      nearest = index;
+      distance = candidateDistance;
+    }
+  }
+  return nearest;
+}
+
+function beginVertexDrag(point: maplibregl.Point): void {
+  selectedVertexIndex = nearestVertex(point);
+  if (selectedVertexIndex === undefined) return;
+  draggingVertex = true;
+  map.dragPan.disable();
+  updateEditingControls();
+}
+
+function moveSelectedVertex(coordinate: Position): void {
+  const field = selectedField();
+  if (!field || selectedVertexIndex === undefined) return;
+  const ring = field.geometry.coordinates[0];
+  ring[selectedVertexIndex] = snappedCoordinate(coordinate);
+  ring[ring.length - 1] = ring[0];
+  field.properties.areaM2 = polygonAreaM2(ring);
+  refreshMap();
+  updateQaSummary();
+}
+
+function insertVertexAt(point: maplibregl.Point, coordinate: Position): void {
+  const field = selectedField();
+  if (!field) return;
+  const ring = field.geometry.coordinates[0];
+  let closestIndex: number | undefined;
+  let closestDistance = 12;
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const start = map.project(ring[index] as [number, number]);
+    const end = map.project(ring[index + 1] as [number, number]);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx ** 2 + dy ** 2)));
+    const distance = Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
+    if (distance < closestDistance) {
+      closestIndex = index;
+      closestDistance = distance;
+    }
+  }
+  if (closestIndex === undefined) return;
+  ring.splice(closestIndex + 1, 0, snappedCoordinate(coordinate));
+  ring[ring.length - 1] = ring[0];
+  selectedVertexIndex = closestIndex + 1;
+  field.properties.areaM2 = polygonAreaM2(ring);
+  refreshMap();
+  updateEditingControls();
+  updateQaSummary();
+}
+
+function replaceSelectedField(next: FieldCollection["features"][number], message: string): void {
+  const index = fields.features.findIndex((field) => field.properties.id === next.properties.id);
+  if (index === -1) return;
+  fields.features[index] = next;
+  refreshMap();
+  updateEditingControls();
+  updateQaSummary();
+  toast(message);
+}
+
 function updateEditingControls(): void {
   $("draw-button").textContent = drawing
     ? "Drawing field…"
     : drawingMode === "circle"
       ? "Draw circular field"
-      : "Draw field polygon";
+      : drawingMode === "rectangle"
+        ? "Draw rectangular field"
+        : "Draw field polygon";
   $("finish-button").toggleAttribute("disabled", !drawing || draft.length < 3);
   $("undo-point-button").toggleAttribute("disabled", !drawing || draft.length === 0);
   $("cancel-draft-button").toggleAttribute("disabled", !drawing);
   $("remove-field-button").toggleAttribute("disabled", !selectedFieldId);
   $("undo-field-button").toggleAttribute("disabled", fields.features.length === 0);
   $("selection-note").textContent = selectedFieldId ? `Selected ${selectedFieldId}` : "None selected";
-  const selected = fields.features.find((field) => field.properties.id === selectedFieldId);
+  const selected = selectedField();
+  $("vertex-edit-mode").toggleAttribute("disabled", !selected);
+  $("vertex-edit-mode").toggleAttribute("checked", vertexEditMode);
+  $("delete-vertex-button").toggleAttribute("disabled", selectedVertexIndex === undefined || !selected);
+  $("clean-field-button").toggleAttribute("disabled", !selected);
+  $("repair-field-button").toggleAttribute("disabled", !selected);
+  $("trim-field-button").toggleAttribute("disabled", !selected || fields.features.length < 2);
+  $("split-field-button").toggleAttribute("disabled", !selected);
   const reviewButton = $("review-field-button") as HTMLButtonElement;
   reviewButton.disabled = !selected;
   reviewButton.textContent = selected?.properties.needsReview ? "Clear review flag" : "Mark for review";
@@ -121,10 +297,14 @@ function updateEditingControls(): void {
   $("draw-hint").textContent = drawing
     ? drawingMode === "circle"
       ? "Drag from the field center to set the radius. Release to finish."
-      : `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
+      : drawingMode === "rectangle"
+        ? "Drag from one field corner to the opposite corner. Release to finish."
+        : `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
     : drawingMode === "circle"
       ? "Choose Circle, then drag from the field center to set the radius."
-      : "Click around a field. Double-click to close it.";
+      : drawingMode === "rectangle"
+        ? "Choose Rectangle, then drag between opposite field corners."
+        : "Click around a field. Double-click to close it.";
 }
 
 function resetDraft(): void {
@@ -155,7 +335,7 @@ function finishDraft(): void {
   fields.features.push(feature);
   resetDraft();
   selectedFieldId = undefined;
-  setTaskData(map, task, fields.features, selectedFieldId);
+  refreshMap();
   updateSummary();
   updateEditingControls();
   toast("Field added to this task");
@@ -167,7 +347,9 @@ function removeField(fieldId: string | undefined): void {
   if (index === -1) return;
   fields.features.splice(index, 1);
   selectedFieldId = undefined;
-  setTaskData(map, task, fields.features, selectedFieldId);
+  selectedVertexIndex = undefined;
+  vertexEditMode = false;
+  refreshMap();
   updateSummary();
   updateEditingControls();
   toast("Field removed · nothing is uploaded yet");
@@ -178,7 +360,7 @@ function toggleReviewFlag(): void {
   if (!selected) return;
   selected.properties.needsReview = !selected.properties.needsReview;
   if (!selected.properties.needsReview) delete selected.properties.reviewReason;
-  setTaskData(map, task, fields.features, selectedFieldId);
+  refreshMap();
   updateEditingControls();
   toast(selected.properties.needsReview ? "Field marked for review" : "Review flag cleared");
 }
@@ -194,7 +376,117 @@ function updateSummary(): void {
   $("area-count").textContent =
     `${Math.round(fields.features.reduce((total, field) => total + polygonAreaM2(field.geometry.coordinates[0]), 0)).toLocaleString()}`;
   $("upload-button").toggleAttribute("disabled", fields.features.length === 0 || !osmConnected);
+  updateQaSummary();
   updateEditingControls();
+}
+
+function cleanSelectedField(): void {
+  const field = selectedField();
+  if (!field) return;
+  const cleaned = cleanField(field);
+  if (!cleaned) {
+    toast("This geometry cannot be cleaned into one field polygon");
+    return;
+  }
+  if (JSON.stringify(cleaned.geometry) === JSON.stringify(field.geometry)) {
+    toast("Geometry already clean");
+    return;
+  }
+  replaceSelectedField(cleaned, "Clean geometry applied · inspect the highlighted field");
+}
+
+function repairSelectedField(): void {
+  const field = selectedField();
+  if (!field) return;
+  const repaired = fixSelfCrossingField(field);
+  if (!repaired) {
+    toast("Repair would create multiple fields — redraw this boundary instead");
+    return;
+  }
+  replaceSelectedField(repaired, "Crossing repaired · inspect the highlighted field");
+}
+
+function trimSelectedField(): void {
+  const field = selectedField();
+  if (!field) return;
+  const trimmed = trimFieldOverlaps(field, fields);
+  if (!trimmed) {
+    toast("Trim would create multiple pieces — edit the overlap manually");
+    return;
+  }
+  replaceSelectedField(trimmed, "Overlap trimmed · inspect the highlighted field");
+}
+
+function startSplitField(): void {
+  if (!selectedField()) return;
+  splitMode = !splitMode;
+  splitDraft = [];
+  setDraftData(map, []);
+  $("split-field-button").textContent = splitMode
+    ? "Draw two points across the field…"
+    : "Split selected field with a line";
+  toast(splitMode ? "Click two points across the selected field to split it" : "Field split canceled");
+}
+
+function splitSelectedField(): void {
+  const field = selectedField();
+  if (!field || splitDraft.length !== 2) return;
+  const [start, end] = splitDraft;
+  const splitter = lineString([
+    [start[0] - (end[0] - start[0]) * 100, start[1] - (end[1] - start[1]) * 100],
+    [end[0] + (end[0] - start[0]) * 100, end[1] + (end[1] - start[1]) * 100],
+  ]);
+  const boundary = polygonToLine(field);
+  const boundaryLines = boundary.type === "FeatureCollection" ? boundary.features : [boundary];
+  const pieces = polygonize(featureCollection([...boundaryLines, splitter]));
+  splitMode = false;
+  splitDraft = [];
+  setDraftData(map, []);
+  $("split-field-button").textContent = "Split selected field with a line";
+  if (pieces.features.length !== 2) {
+    toast("That line does not split this field into two usable polygons");
+    return;
+  }
+  const index = fields.features.findIndex((candidate) => candidate.properties.id === field.properties.id);
+  const replacements = pieces.features.map((piece, pieceIndex) =>
+    createFieldFeature(piece.geometry.coordinates[0], `${field.properties.id}-${pieceIndex + 1}`),
+  );
+  const remaining: FieldCollection = {
+    type: "FeatureCollection",
+    features: fields.features.filter((candidate) => candidate !== field),
+  };
+  const errors = replacements.flatMap((piece) =>
+    validateField(piece, task, {
+      ...remaining,
+      features: [...remaining.features, ...replacements.filter((other) => other !== piece)],
+    }),
+  );
+  if (errors.length) {
+    toast(`Split needs another pass: ${errors[0]}`);
+    return;
+  }
+  fields.features.splice(index, 1, ...replacements);
+  selectedFieldId = replacements[0].properties.id;
+  refreshMap();
+  updateSummary();
+  toast("Field split into two polygons · inspect both before upload");
+}
+
+function deleteSelectedVertex(): void {
+  const field = selectedField();
+  if (!field || selectedVertexIndex === undefined) return;
+  const ring = field.geometry.coordinates[0];
+  if (ring.length <= 4) {
+    toast("A field polygon needs at least three corners");
+    return;
+  }
+  ring.splice(selectedVertexIndex, 1);
+  ring[ring.length - 1] = ring[0];
+  field.properties.areaM2 = polygonAreaM2(ring);
+  selectedVertexIndex = undefined;
+  refreshMap();
+  updateEditingControls();
+  updateQaSummary();
 }
 
 async function connectOsm(): Promise<void> {
@@ -217,7 +509,12 @@ $("draw-button").addEventListener("click", () => {
 $("drawing-mode").addEventListener("change", (event) => {
   drawingMode = (event.target as HTMLSelectElement).value as typeof drawingMode;
   if (drawing) resetDraft();
-  $("draw-button").textContent = drawingMode === "circle" ? "Draw circular field" : "Draw field polygon";
+  $("draw-button").textContent =
+    drawingMode === "circle"
+      ? "Draw circular field"
+      : drawingMode === "rectangle"
+        ? "Draw rectangular field"
+        : "Draw field polygon";
   updateEditingControls();
 });
 $("undo-point-button").addEventListener("click", undoDraftPoint);
@@ -228,6 +525,18 @@ $("cancel-draft-button").addEventListener("click", () => {
 $("finish-button").addEventListener("click", finishDraft);
 $("remove-field-button").addEventListener("click", () => removeField(selectedFieldId));
 $("undo-field-button").addEventListener("click", () => removeField(fields.features.at(-1)?.properties.id));
+$("vertex-edit-mode").addEventListener("change", (event) => {
+  vertexEditMode = (event.target as HTMLInputElement).checked;
+  selectedVertexIndex = undefined;
+  refreshMap();
+  updateEditingControls();
+  toast(vertexEditMode ? "Vertex edit mode on · drag a handle or click an edge to add one" : "Vertex edit mode off");
+});
+$("delete-vertex-button").addEventListener("click", deleteSelectedVertex);
+$("clean-field-button").addEventListener("click", cleanSelectedField);
+$("repair-field-button").addEventListener("click", repairSelectedField);
+$("trim-field-button").addEventListener("click", trimSelectedField);
+$("split-field-button").addEventListener("click", startSplitField);
 $("review-field-button").addEventListener("click", toggleReviewFlag);
 $("review-reason").addEventListener("change", (event) => setReviewReason((event.target as HTMLSelectElement).value));
 $("zoom-task-button").addEventListener("click", () => {
@@ -413,7 +722,51 @@ $("mosaic-year").addEventListener("input", (event) => {
   const year = Number((event.target as HTMLInputElement).value);
   $("mosaic-year-value").textContent = `${year}`;
   setMosaicYear(map, year);
+  if (comparisonEnabled) setComparisonYear(map, comparisonYear, 0.5);
 });
+$("snap-mode").addEventListener("change", (event) => {
+  snapEnabled = (event.target as HTMLInputElement).checked;
+  toast(snapEnabled ? "Snapping to task and traced fields is on" : "Snapping is off");
+});
+$("comparison-layer").addEventListener("change", (event) => {
+  comparisonEnabled = (event.target as HTMLInputElement).checked;
+  syncComparison();
+});
+$("comparison-year").addEventListener("input", (event) => {
+  comparisonYear = Number((event.target as HTMLInputElement).value);
+  $("comparison-year-value").textContent = `${comparisonYear}`;
+  if (comparisonEnabled) syncComparison();
+});
+$("flicker-button").addEventListener("click", () => {
+  if (flickerTimer) {
+    window.clearInterval(flickerTimer);
+    flickerTimer = undefined;
+    $("flicker-button").textContent = "Flicker comparison";
+    syncComparison();
+    return;
+  }
+  comparisonEnabled = false;
+  ($("comparison-layer") as HTMLInputElement).checked = false;
+  const baseYear = Number(($("mosaic-year") as HTMLInputElement).value);
+  let alternate = false;
+  flickerTimer = window.setInterval(() => {
+    setMosaicYear(map, alternate ? baseYear : comparisonYear);
+    alternate = !alternate;
+  }, 700);
+  $("flicker-button").textContent = "Stop flicker";
+});
+function updateAppearance(): void {
+  setMosaicAppearance(map, {
+    brightness: Number(($("image-brightness") as HTMLInputElement).value),
+    contrast: Number(($("image-contrast") as HTMLInputElement).value),
+    saturation: Number(($("image-saturation") as HTMLInputElement).value),
+    opacity: 1,
+  });
+  if (comparisonEnabled) setComparisonYear(map, comparisonYear, 0.5);
+}
+for (const id of ["image-brightness", "image-contrast", "image-saturation"]) {
+  $(id).addEventListener("input", updateAppearance);
+}
 $("roads-layer").addEventListener("change", (event) => {
   const visible = (event.target as HTMLInputElement).checked;
   toggleLayer(map, "overture-road-casing", visible);
@@ -440,6 +793,22 @@ $("planet-key").addEventListener("click", () => {
 $("upload-button").addEventListener("click", () =>
   toast("Upload flow placeholder — OSM OAuth and osmChange upload next"),
 );
+$("review-task-button").addEventListener("click", () => {
+  const warnings = fields.features.flatMap((field) => fieldWarnings(field, task, fields));
+  if (warnings.length) {
+    toast(`Review found ${warnings.length} geometry warning${warnings.length === 1 ? "" : "s"}`);
+    return;
+  }
+  toast("Geometry passes · now inspect coverage, time windows, and ambiguity flags");
+});
+$("no-fields-button").addEventListener("click", () => {
+  if (fields.features.length) {
+    toast("Remove drawn fields before marking this task as reviewed with no fields");
+    return;
+  }
+  $("status-copy").textContent = "Reviewed · no annual-crop fields visible";
+  toast("Recorded locally — mark the task state in HOT Tasking Manager when ready");
+});
 $("return-button").addEventListener("click", () => window.history.back());
 
 updateEditingControls();

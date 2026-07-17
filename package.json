@@ -15,6 +15,14 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@turf/boolean-valid": "^7.3.5",
+    "@turf/clean-coords": "^7.3.5",
+    "@turf/difference": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
+    "@turf/polygon-to-line": "^7.3.5",
+    "@turf/polygonize": "^7.3.5",
+    "@turf/simplify": "^7.3.5",
+    "@turf/unkink-polygon": "^7.3.5",
     "maplibre-gl": "^5.7.0",
     "pmtiles": "^4.4.1"
   },
