@@ -48,8 +48,11 @@ export async function beginOsmLogin(): Promise<string> {
   if (!configuredClientId) throw new Error("Set VITE_OSM_CLIENT_ID before enabling OSM login.");
   const verifier = randomString(32);
   const state = `${randomString(16)}.popup`;
-  sessionStorage.setItem("field-tracer-osm-verifier", verifier);
-  sessionStorage.setItem("field-tracer-osm-state", state);
+  // A login popup is a separate top-level browsing context. localStorage is
+  // shared by same-origin tabs after OSM redirects the popup home, unlike
+  // sessionStorage which can be lost when cross-origin opener isolation applies.
+  localStorage.setItem("field-tracer-osm-verifier", verifier);
+  localStorage.setItem("field-tracer-osm-state", state);
   const params = new URLSearchParams({
     response_type: "code",
     client_id: configuredClientId,
@@ -66,8 +69,8 @@ export async function completeOsmLogin(search = window.location.search): Promise
   const params = new URLSearchParams(search);
   const code = params.get("code");
   const returnedState = params.get("state");
-  const verifier = sessionStorage.getItem("field-tracer-osm-verifier");
-  const expectedState = sessionStorage.getItem("field-tracer-osm-state");
+  const verifier = localStorage.getItem("field-tracer-osm-verifier");
+  const expectedState = localStorage.getItem("field-tracer-osm-state");
   const configuredClientId = clientId();
   if (!code || !verifier || !configuredClientId || !returnedState || returnedState !== expectedState) {
     if (params.has("error")) throw new Error(params.get("error_description") ?? "OSM login was not completed.");
@@ -88,8 +91,8 @@ export async function completeOsmLogin(search = window.location.search): Promise
   if (!response.ok) throw new Error(`OSM token exchange failed (${response.status}).`);
   const payload = (await response.json()) as { access_token?: string };
   if (!payload.access_token) throw new Error("OSM did not return an access token.");
-  sessionStorage.removeItem("field-tracer-osm-verifier");
-  sessionStorage.removeItem("field-tracer-osm-state");
+  localStorage.removeItem("field-tracer-osm-verifier");
+  localStorage.removeItem("field-tracer-osm-state");
   window.history.replaceState({}, "", window.location.pathname);
   return { accessToken: payload.access_token, apiBase: apiBase() };
 }
