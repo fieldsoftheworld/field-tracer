@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Field Tracer editor", () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("field-tracer-tutorial-seen", "true"));
     await page.goto("/");
     await expect(page.locator("#map .maplibregl-canvas")).toBeVisible();
   });
@@ -10,7 +11,7 @@ test.describe("Field Tracer editor", () => {
     await expect(page).toHaveTitle(/Field Tracer/);
     await expect(page.getByRole("heading", { name: "Field Tracer" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Central Illinois pilot" })).toBeVisible();
-    await expect(page.getByText("EOxCloudless · Sentinel-2 2025")).toBeVisible();
+    await expect(page.getByText("EOxCloudless · Sentinel-2 mosaic")).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload to OSM" })).toBeDisabled();
   });
 
@@ -23,6 +24,14 @@ test.describe("Field Tracer editor", () => {
     await page.getByRole("button", { name: "Drawing field…" }).click();
     await expect(page.getByRole("button", { name: "Draw field polygon" })).toBeVisible();
     await expect(page.getByText("Click around a field. Double-click to close it.")).toBeVisible();
+  });
+
+  test("offers circular field drawing", async ({ page }) => {
+    await page.getByLabel("Shape").selectOption("circle");
+    await expect(page.getByRole("button", { name: "Draw circular field" })).toBeVisible();
+    await expect(page.getByText("Choose Circle, then drag from the field center to set the radius.")).toBeVisible();
+    await page.getByRole("button", { name: "Draw circular field" }).click();
+    await expect(page.getByText("Drag from the field center to set the radius. Release to finish.")).toBeVisible();
   });
 
   test("undoes a point and cancels the current polygon", async ({ page }) => {
@@ -70,6 +79,8 @@ test.describe("Field Tracer editor", () => {
     await expect(page.getByAltText(/A difficult boundary/)).toBeVisible();
     await page.getByRole("button", { name: "Imagery", exact: true }).click();
     await expect(page.getByAltText(/Use NIR for subtle edges/)).toBeVisible();
+    await page.getByRole("tab", { name: "Walkthrough videos" }).click();
+    await expect(page.locator("video")).toHaveCount(3);
   });
 
   test("rejects an undersized polygon before upload", async ({ page }) => {
@@ -86,14 +97,14 @@ test.describe("Field Tracer editor", () => {
     await page.mouse.click(centerX + 1, centerY + 1);
     await page.getByRole("button", { name: "Finish current polygon" }).click();
 
-    await expect(page.getByRole("status")).toContainText("Needs another pass");
-    await expect(page.getByRole("status")).toContainText("below 400 m²");
+    await expect(page.locator("#toast")).toContainText("Needs another pass");
+    await expect(page.locator("#toast")).toContainText("below 400 m²");
     await expect(page.locator("#field-count")).toHaveText("0");
   });
 
   test("requires OAuth configuration before starting OSM login", async ({ page }) => {
     await page.getByRole("button", { name: /Continue with OpenStreetMap/ }).click();
-    await expect(page.getByRole("status")).toContainText("Set VITE_OSM_CLIENT_ID");
+    await expect(page.locator("#toast")).toContainText("Set VITE_OSM_CLIENT_ID");
   });
 
   test("keeps upload disabled until a field and OSM session exist", async ({ page }) => {

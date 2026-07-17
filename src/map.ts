@@ -1,5 +1,6 @@
 import type { Feature, Polygon } from "geojson";
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
+import { Protocol } from "pmtiles";
 import type { FieldFeature, TaskContext } from "./types";
 
 const sourceId = "field-tracer-data";
@@ -7,10 +8,18 @@ const taskLayerId = "task-boundary";
 const fieldLayerId = "field-fill";
 const fieldLineId = "field-line";
 const draftLayerId = "draft-line";
+const mosaicYears = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025] as const;
+const overtureRelease = "2026-06-17.0";
+
+const pmtilesProtocol = new Protocol();
+maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
 
 export type MapCallbacks = {
   onMapClick: (event: MapMouseEvent) => void;
   onMapDoubleClick: (event: MapMouseEvent) => void;
+  onMapMouseDown?: (event: MapMouseEvent) => void;
+  onMapMouseMove?: (event: MapMouseEvent) => void;
+  onMapMouseUp?: (event: MapMouseEvent) => void;
 };
 
 export function createMap(container: string, task: TaskContext, callbacks: MapCallbacks): MapLibreMap {
@@ -23,22 +32,98 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
     style: {
       version: 8,
       sources: {
-        eox: {
-          type: "raster",
-          // EOX's WMTS path is TileMatrix/TileRow/TileCol (z/y/x), while
-          // MapLibre's tile placeholders are named x/y.
-          tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg"],
-          tileSize: 256,
-          maxzoom: 14,
-          attribution: "EOxCloudless · Sentinel-2 2025 · EOX IT Services GmbH",
+        ...Object.fromEntries(
+          mosaicYears.map((year) => [
+            `eox-${year}`,
+            {
+              type: "raster",
+              // EOX's WMTS path is TileMatrix/TileRow/TileCol (z/y/x), while
+              // MapLibre's tile placeholders are named x/y.
+              tiles: [`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${year}_3857/default/g/{z}/{y}/{x}.jpg`],
+              tileSize: 256,
+              maxzoom: 14,
+              attribution: `EOxCloudless · Sentinel-2 ${year} · EOX IT Services GmbH`,
+            },
+          ]),
+        ),
+        overtureRoads: {
+          type: "vector",
+          url: `pmtiles://https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/${overtureRelease}/transportation.pmtiles`,
+        },
+        overtureBase: {
+          type: "vector",
+          url: `pmtiles://https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/${overtureRelease}/base.pmtiles`,
+        },
+        overtureBuildings: {
+          type: "vector",
+          url: `pmtiles://https://overturemaps-extras-us-west-2.s3.us-west-2.amazonaws.com/tiles/${overtureRelease}/buildings.pmtiles`,
         },
       },
       layers: [
-        {
-          id: "eox-basemap",
-          type: "raster",
-          source: "eox",
+        ...mosaicYears.map((year) => ({
+          id: `eox-basemap-${year}`,
+          type: "raster" as const,
+          source: `eox-${year}`,
+          layout: { visibility: year === 2025 ? ("visible" as const) : ("none" as const) },
           paint: { "raster-saturation": -0.08, "raster-contrast": 0.08 },
+        })),
+        {
+          id: "overture-water",
+          type: "fill",
+          source: "overtureBase",
+          "source-layer": "water",
+          layout: { visibility: "none" },
+          paint: { "fill-color": "#6eaeb2", "fill-opacity": 0.2 },
+        },
+        {
+          id: "overture-water-line",
+          type: "line",
+          source: "overtureBase",
+          "source-layer": "water",
+          layout: { visibility: "none" },
+          paint: { "line-color": "#b5e1e6", "line-width": 1.5, "line-opacity": 0.75 },
+        },
+        {
+          id: "overture-buildings",
+          type: "fill",
+          source: "overtureBuildings",
+          "source-layer": "buildings",
+          layout: { visibility: "none" },
+          paint: { "fill-color": "#ff7f41", "fill-opacity": 0.22 },
+        },
+        {
+          id: "overture-building-line",
+          type: "line",
+          source: "overtureBuildings",
+          "source-layer": "buildings",
+          layout: { visibility: "none" },
+          paint: { "line-color": "#ffb18e", "line-width": 1, "line-opacity": 0.75 },
+        },
+        {
+          id: "overture-road-casing",
+          type: "line",
+          source: "overtureRoads",
+          "source-layer": "roads",
+          minzoom: 10,
+          layout: { visibility: "none" },
+          paint: {
+            "line-color": "#004747",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 5],
+            "line-opacity": 0.8,
+          },
+        },
+        {
+          id: "overture-roads",
+          type: "line",
+          source: "overtureRoads",
+          "source-layer": "roads",
+          minzoom: 10,
+          layout: { visibility: "none" },
+          paint: {
+            "line-color": "#c0d85b",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.7, 16, 3],
+            "line-opacity": 0.95,
+          },
         },
       ],
     },
@@ -90,6 +175,9 @@ export function createMap(container: string, task: TaskContext, callbacks: MapCa
 
   map.on("click", callbacks.onMapClick);
   map.on("dblclick", callbacks.onMapDoubleClick);
+  if (callbacks.onMapMouseDown) map.on("mousedown", callbacks.onMapMouseDown);
+  if (callbacks.onMapMouseMove) map.on("mousemove", callbacks.onMapMouseMove);
+  if (callbacks.onMapMouseUp) map.on("mouseup", callbacks.onMapMouseUp);
   return map;
 }
 
@@ -128,4 +216,11 @@ export function setDraftData(map: MapLibreMap, coordinates: number[][]): void {
 export function toggleLayer(map: MapLibreMap, layer: string, visible: boolean): void {
   const visibility = visible ? "visible" : "none";
   if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", visibility);
+}
+
+export function setMosaicYear(map: MapLibreMap, year: number): void {
+  for (const candidate of mosaicYears) {
+    const layer = `eox-basemap-${candidate}`;
+    if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", candidate === year ? "visible" : "none");
+  }
 }

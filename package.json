@@ -15,7 +15,8 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "maplibre-gl": "^5.7.0"
+    "maplibre-gl": "^5.7.0",
+    "pmtiles": "^4.4.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",

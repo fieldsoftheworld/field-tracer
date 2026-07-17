@@ -5,6 +5,22 @@ const EARTH_RADIUS_M = 6_378_137;
 export const MIN_AREA_M2 = 400;
 export const MIN_EDGE_M = 10;
 
+export function circleCoordinates(center: Position, edge: Position, segments = 48): Position[] {
+  const radius = Math.hypot(...toMeters(edge, center));
+  const latitudeRadians = (center[1] * Math.PI) / 180;
+  const longitudeScale = Math.cos(latitudeRadians);
+  const ring = Array.from({ length: segments }, (_, index) => {
+    const angle = (index / segments) * Math.PI * 2;
+    const east = Math.cos(angle) * radius;
+    const north = Math.sin(angle) * radius;
+    return [
+      center[0] + (east * 180) / (Math.PI * EARTH_RADIUS_M * longitudeScale),
+      center[1] + (north * 180) / (Math.PI * EARTH_RADIUS_M),
+    ] as Position;
+  });
+  return [...ring, ring[0]];
+}
+
 function toMeters([lon, lat]: Position, origin: Position): [number, number] {
   const latScale = Math.cos((origin[1] * Math.PI) / 180);
   return [

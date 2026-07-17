@@ -1,10 +1,10 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Feature, Polygon, Position } from "geojson";
 import maplibregl from "maplibre-gl";
-import { createFieldFeature, polygonAreaM2, validateField } from "./geometry";
-import { createMap, setDraftData, setTaskData, toggleLayer } from "./map";
+import { circleCoordinates, createFieldFeature, polygonAreaM2, validateField } from "./geometry";
+import { createMap, setDraftData, setMosaicYear, setTaskData, toggleLayer } from "./map";
 import { beginOsmLogin, completeOsmLogin, type OsmSession } from "./osm";
-import { trainingCategories, trainingExamples } from "./training";
+import { trainingCategories, trainingExamples, trainingVideos } from "./training";
 import type { FieldCollection, TaskContext } from "./types";
 import "./styles.css";
 
@@ -33,6 +33,9 @@ const task: TaskContext = {
 const fields: FieldCollection = { type: "FeatureCollection", features: [] };
 let drawing = false;
 let draft: Position[] = [];
+let drawingMode: "polygon" | "circle" = "polygon";
+let circleCenter: Position | undefined;
+let circleDragging = false;
 let osmConnected = false;
 let planetKeyPresent = false;
 let osmSession: OsmSession | undefined;
@@ -61,11 +64,32 @@ const map = createMap("map", task, {
       updateEditingControls();
       return;
     }
+    if (drawingMode === "circle") return;
     draft.push([event.lngLat.lng, event.lngLat.lat]);
     setDraftData(map, draft as number[][]);
     updateEditingControls();
   },
   onMapDoubleClick: () => finishDraft(),
+  onMapMouseDown: (event) => {
+    if (!drawing || drawingMode !== "circle") return;
+    circleCenter = [event.lngLat.lng, event.lngLat.lat];
+    circleDragging = true;
+    draft = circleCoordinates(circleCenter, circleCenter);
+    setDraftData(map, draft as number[][]);
+    updateEditingControls();
+  },
+  onMapMouseMove: (event) => {
+    if (!circleDragging || !circleCenter) return;
+    draft = circleCoordinates(circleCenter, [event.lngLat.lng, event.lngLat.lat]);
+    setDraftData(map, draft as number[][]);
+  },
+  onMapMouseUp: (event) => {
+    if (!circleDragging || !circleCenter) return;
+    draft = circleCoordinates(circleCenter, [event.lngLat.lng, event.lngLat.lat]);
+    circleDragging = false;
+    setDraftData(map, draft as number[][]);
+    finishDraft();
+  },
 });
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
@@ -78,7 +102,11 @@ function toast(message: string): void {
 }
 
 function updateEditingControls(): void {
-  $("draw-button").textContent = drawing ? "Drawing field…" : "Draw field polygon";
+  $("draw-button").textContent = drawing
+    ? "Drawing field…"
+    : drawingMode === "circle"
+      ? "Draw circular field"
+      : "Draw field polygon";
   $("finish-button").toggleAttribute("disabled", !drawing || draft.length < 3);
   $("undo-point-button").toggleAttribute("disabled", !drawing || draft.length === 0);
   $("cancel-draft-button").toggleAttribute("disabled", !drawing);
@@ -91,13 +119,19 @@ function updateEditingControls(): void {
   reviewButton.textContent = selected?.properties.needsReview ? "Clear review flag" : "Mark for review";
   $("review-reason").toggleAttribute("disabled", !selected?.properties.needsReview);
   $("draw-hint").textContent = drawing
-    ? `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
-    : "Click around a field. Double-click to close it.";
+    ? drawingMode === "circle"
+      ? "Drag from the field center to set the radius. Release to finish."
+      : `${draft.length} points · click Undo point or press ⌘/Ctrl+Z`
+    : drawingMode === "circle"
+      ? "Choose Circle, then drag from the field center to set the radius."
+      : "Click around a field. Double-click to close it.";
 }
 
 function resetDraft(): void {
   drawing = false;
   draft = [];
+  circleCenter = undefined;
+  circleDragging = false;
   setDraftData(map, []);
   updateEditingControls();
 }
@@ -180,6 +214,12 @@ $("draw-button").addEventListener("click", () => {
   }
   updateEditingControls();
 });
+$("drawing-mode").addEventListener("change", (event) => {
+  drawingMode = (event.target as HTMLSelectElement).value as typeof drawingMode;
+  if (drawing) resetDraft();
+  $("draw-button").textContent = drawingMode === "circle" ? "Draw circular field" : "Draw field polygon";
+  updateEditingControls();
+});
 $("undo-point-button").addEventListener("click", undoDraftPoint);
 $("cancel-draft-button").addEventListener("click", () => {
   resetDraft();
@@ -199,29 +239,32 @@ $("zoom-task-button").addEventListener("click", () => {
     { padding: 80, duration: 350 },
   );
 });
-$("guidance-button").addEventListener("click", () => ($("guidance-dialog") as HTMLDialogElement).showModal());
-$("close-guidance").addEventListener("click", () => ($("guidance-dialog") as HTMLDialogElement).close());
+$("guidance-button").addEventListener("click", () => {
+  showTutorialContent();
+  ($("guidance-dialog") as HTMLDialogElement).showModal();
+});
+$("close-guidance").addEventListener("click", () => closeTutorial());
 
 const workflowSteps = [
   [
     "1",
     "Is it managed?",
-    "Look for a clear boundary and evidence of active or recent agricultural management. Fallow fields count when management remains legible.",
+    "Look for a clear boundary and evidence of active or recent agricultural management. Include fallow or inactive fields when management remains legible; exclude regrowth and unchanged bare ground.",
   ],
   [
     "2",
     "Does time agree?",
-    "Compare another time window. Harvest, fire, cloud, and bare ground can create field-like patterns in a single image.",
+    "Compare the two Sentinel-2 windows first, then use matching-date basemaps. Harvest, fire, cloud, mining, and bare ground can create field-like patterns in one image.",
   ],
   [
     "3",
     "Where is the edge?",
-    "Use Sentinel-2 windows to decide how many fields exist, then use basemaps or NIR to place the edge. Roads and clear background gaps separate fields.",
+    "Draw the contact between field interior and background. Use roads and obstacles as boundaries, include small features subsumed by the field, and keep neighboring fields touching without a real background gap.",
   ],
   [
     "4",
     "Should it be reviewed?",
-    "If the evidence conflicts, mark the field for review with a reason. If there is no defensible boundary, leave it unmapped.",
+    "Split only with a clear divide and 1–2 pixels of pure interior. If evidence conflicts, mark the field for review; if there is no defensible boundary, leave it unmapped.",
   ],
 ] as const;
 let workflowStep = 0;
@@ -281,6 +324,36 @@ function renderExamples(): void {
     });
 }
 
+function renderVideos(): void {
+  $("video-deck").innerHTML = trainingVideos
+    .map(
+      (video) =>
+        `<article class="video-card"><video controls preload="metadata"><source src="${video.source}" type="video/webm" /></video><div><span class="eyebrow">Walkthrough</span><h3>${video.title}</h3><p>${video.description} <a class="training-source" href="${video.youtube}" target="_blank" rel="noreferrer">Watch original ↗</a></p></div></article>`,
+    )
+    .join("");
+}
+
+function showTutorialContent(): void {
+  $("tutorial-intro").classList.add("is-hidden");
+  $("tutorial-content").classList.remove("is-hidden");
+}
+
+function rememberTutorialChoice(): void {
+  if (($("remember-tutorial") as HTMLInputElement).checked) {
+    localStorage.setItem("field-tracer-tutorial-seen", "true");
+  }
+}
+
+function closeTutorial(): void {
+  rememberTutorialChoice();
+  ($("guidance-dialog") as HTMLDialogElement).close();
+}
+
+function skipTutorial(): void {
+  localStorage.setItem("field-tracer-tutorial-seen", "true");
+  closeTutorial();
+}
+
 $("workflow-tab").addEventListener("click", () => {
   $("workflow-tab").classList.add("is-active");
   $("examples-tab").classList.remove("is-active");
@@ -288,6 +361,9 @@ $("workflow-tab").addEventListener("click", () => {
   $("examples-tab").setAttribute("aria-selected", "false");
   $("workflow-panel").classList.remove("is-hidden");
   $("examples-panel").classList.add("is-hidden");
+  $("videos-tab").classList.remove("is-active");
+  $("videos-tab").setAttribute("aria-selected", "false");
+  $("videos-panel").classList.add("is-hidden");
 });
 $("examples-tab").addEventListener("click", () => {
   $("examples-tab").classList.add("is-active");
@@ -296,9 +372,34 @@ $("examples-tab").addEventListener("click", () => {
   $("workflow-tab").setAttribute("aria-selected", "false");
   $("examples-panel").classList.remove("is-hidden");
   $("workflow-panel").classList.add("is-hidden");
+  $("videos-tab").classList.remove("is-active");
+  $("videos-tab").setAttribute("aria-selected", "false");
+  $("videos-panel").classList.add("is-hidden");
+});
+$("videos-tab").addEventListener("click", () => {
+  $("videos-tab").classList.add("is-active");
+  $("workflow-tab").classList.remove("is-active");
+  $("examples-tab").classList.remove("is-active");
+  $("videos-tab").setAttribute("aria-selected", "true");
+  $("workflow-tab").setAttribute("aria-selected", "false");
+  $("examples-tab").setAttribute("aria-selected", "false");
+  $("videos-panel").classList.remove("is-hidden");
+  $("workflow-panel").classList.add("is-hidden");
+  $("examples-panel").classList.add("is-hidden");
+});
+$("start-tutorial").addEventListener("click", showTutorialContent);
+$("skip-tutorial").addEventListener("click", skipTutorial);
+$("tutorial-info").addEventListener("click", () => {
+  showTutorialContent();
+  ($("guidance-dialog") as HTMLDialogElement).showModal();
 });
 renderTraining();
 renderExamples();
+renderVideos();
+
+if (localStorage.getItem("field-tracer-tutorial-seen") !== "true") {
+  window.setTimeout(() => ($("guidance-dialog") as HTMLDialogElement).showModal(), 500);
+}
 $("osm-login").addEventListener("click", () => void connectOsm());
 $("osm-layer").addEventListener("change", (event) =>
   toggleLayer(map, "task-boundary", (event.target as HTMLInputElement).checked),
@@ -307,6 +408,26 @@ $("task-layer").addEventListener("change", (event) => {
   const visible = (event.target as HTMLInputElement).checked;
   toggleLayer(map, "task-boundary", visible);
   toggleLayer(map, "task-fill", visible);
+});
+$("mosaic-year").addEventListener("input", (event) => {
+  const year = Number((event.target as HTMLInputElement).value);
+  $("mosaic-year-value").textContent = `${year}`;
+  setMosaicYear(map, year);
+});
+$("roads-layer").addEventListener("change", (event) => {
+  const visible = (event.target as HTMLInputElement).checked;
+  toggleLayer(map, "overture-road-casing", visible);
+  toggleLayer(map, "overture-roads", visible);
+});
+$("waterways-layer").addEventListener("change", (event) => {
+  const visible = (event.target as HTMLInputElement).checked;
+  toggleLayer(map, "overture-water", visible);
+  toggleLayer(map, "overture-water-line", visible);
+});
+$("buildings-layer").addEventListener("change", (event) => {
+  const visible = (event.target as HTMLInputElement).checked;
+  toggleLayer(map, "overture-buildings", visible);
+  toggleLayer(map, "overture-building-line", visible);
 });
 $("planet-login").addEventListener("click", () =>
   toast("Planet OAuth will be enabled after the tile-auth feasibility check"),

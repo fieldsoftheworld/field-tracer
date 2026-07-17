@@ -6,6 +6,34 @@ export type TrainingExample = {
   category: "boundary" | "imagery" | "not-field" | "split";
 };
 
+export type TrainingVideo = {
+  title: string;
+  description: string;
+  source: string;
+  youtube: string;
+};
+
+export const trainingVideos: TrainingVideo[] = [
+  {
+    title: "Many vertices",
+    description: "A field-boundary tracing walkthrough.",
+    source: "/training/videos/q18KiMuT0F8.webm",
+    youtube: "https://www.youtube.com/watch?v=q18KiMuT0F8",
+  },
+  {
+    title: "Field boundary annotation in Paraguay",
+    description: "A complete annotation example in a real labeling context.",
+    source: "/training/videos/-M6i_5RdpWs.webm",
+    youtube: "https://www.youtube.com/watch?v=-M6i_5RdpWs",
+  },
+  {
+    title: "Field splitting",
+    description: "How to split contiguous or blobby agricultural areas when the imagery supports it.",
+    source: "/training/videos/73SiwV5uEGY.webm",
+    youtube: "https://www.youtube.com/watch?v=73SiwV5uEGY",
+  },
+];
+
 export const trainingExamples: TrainingExample[] = [
   {
     title: "A difficult boundary",

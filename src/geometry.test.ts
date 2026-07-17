@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Feature, Polygon } from "geojson";
-import { createFieldFeature, MIN_AREA_M2, MIN_EDGE_M, polygonAreaM2, shortestEdgeM, validateField } from "./geometry";
+import {
+  circleCoordinates,
+  createFieldFeature,
+  MIN_AREA_M2,
+  MIN_EDGE_M,
+  polygonAreaM2,
+  shortestEdgeM,
+  validateField,
+} from "./geometry";
 import type { FieldCollection, TaskContext } from "./types";
 
 const taskBoundary: Feature<Polygon> = {
@@ -42,6 +50,14 @@ describe("field geometry", () => {
 
     expect(polygonAreaM2(field.geometry.coordinates[0])).toBeGreaterThan(MIN_AREA_M2);
     expect(shortestEdgeM(field.geometry.coordinates[0])).toBeGreaterThan(MIN_EDGE_M);
+  });
+
+  test("creates a closed circular ring from a center and radius point", () => {
+    const ring = circleCoordinates([-88.18, 40.18], [-88.175, 40.18]);
+
+    expect(ring).toHaveLength(49);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    expect(polygonAreaM2(ring)).toBeGreaterThan(MIN_AREA_M2);
   });
 
   test("rejects a field below the minimum area", () => {

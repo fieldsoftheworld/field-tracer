@@ -43,6 +43,12 @@
 
         <div class="section-rule"></div>
         <p class="eyebrow">Draw</p>
+        <label class="select-label" for="drawing-mode">Shape
+          <select id="drawing-mode">
+            <option value="polygon">Polygon — trace the field edge</option>
+            <option value="circle">Circle — drag from center to radius</option>
+          </select>
+        </label>
         <button type="button" class="btn-primary btn-wide" id="draw-button">Draw field polygon</button>
         <div class="draw-actions">
           <button type="button" class="btn-quiet" id="undo-point-button" disabled>Undo point</button>
@@ -87,6 +93,18 @@
         </div>
         <label class="layer-toggle"><input type="checkbox" id="osm-layer" checked /> <span>Reference context</span></label>
         <label class="layer-toggle"><input type="checkbox" id="task-layer" checked /> <span>Task boundary</span></label>
+        <div class="mosaic-control">
+          <div class="mosaic-heading"><span class="eyebrow">Sentinel-2 mosaic year</span><output id="mosaic-year-value">2025</output></div>
+          <input id="mosaic-year" type="range" min="2016" max="2025" value="2025" step="1" aria-label="Sentinel-2 mosaic year" />
+          <p class="hint">Annual cloudless mosaic; acquisition dates vary within the year.</p>
+        </div>
+        <div class="reference-layers">
+          <p class="eyebrow">Reference geometry</p>
+          <label class="layer-toggle"><input type="checkbox" id="roads-layer" /> <span>Overture roads</span></label>
+          <label class="layer-toggle"><input type="checkbox" id="waterways-layer" /> <span>Overture waterways</span></label>
+          <label class="layer-toggle"><input type="checkbox" id="buildings-layer" /> <span>Overture buildings</span></label>
+          <p class="hint">Reference only. These layers do not change your field polygons.</p>
+        </div>
       </aside>
 
       <aside class="right-panel glass-panel">
@@ -119,7 +137,7 @@
         <button type="button" class="btn-quiet btn-wide" id="return-button">Return to HOT Tasking Manager</button>
       </aside>
 
-      <div class="map-attribution">EOxCloudless · Sentinel-2 2025 · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · OSM reference © contributors</div>
+      <div class="map-attribution">EOxCloudless · Sentinel-2 mosaic · <a href="https://s2maps.eu/" target="_blank" rel="noreferrer">EOX</a> · Overture Maps · OSM reference © contributors</div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <dialog class="guidance-dialog" id="guidance-dialog">
         <div class="dialog-heading">
@@ -129,9 +147,19 @@
           </div>
           <button type="button" class="icon-button" id="close-guidance" aria-label="Close labeling guide">×</button>
         </div>
+        <div class="tutorial-intro" id="tutorial-intro">
+          <p>Take a short tour of the labeling decisions and watch field-boundary walkthroughs before you start.</p>
+          <div class="tutorial-intro-actions">
+            <button type="button" class="btn-primary" id="start-tutorial">Start tutorial</button>
+            <button type="button" class="btn-quiet" id="skip-tutorial">Skip and start mapping</button>
+          </div>
+          <label class="layer-toggle"><input type="checkbox" id="remember-tutorial" /> <span>Do not show this automatically again</span></label>
+        </div>
+        <div id="tutorial-content" class="is-hidden">
         <div class="training-tabs" role="tablist" aria-label="Training sections">
           <button type="button" class="training-tab is-active" id="workflow-tab" role="tab" aria-selected="true">Decision workflow</button>
           <button type="button" class="training-tab" id="examples-tab" role="tab" aria-selected="false">Visual examples</button>
+          <button type="button" class="training-tab" id="videos-tab" role="tab" aria-selected="false">Walkthrough videos</button>
         </div>
         <section id="workflow-panel" class="training-panel" role="tabpanel">
           <div class="training-progress" id="training-progress"></div>
@@ -141,8 +169,13 @@
           <div class="example-filters" id="example-filters"></div>
           <div class="example-deck" id="example-deck"></div>
         </section>
+        <section id="videos-panel" class="training-panel is-hidden" role="tabpanel">
+          <div class="video-deck" id="video-deck"></div>
+        </section>
         <p class="hint">Condensed from the WRI × ASU labeling standards and annotation discussion slides. <a class="training-source" href="https://docs.google.com/presentation/d/1kTYfqnRoWjFfIRHDnQ-IVFTQMCsZAfwnsBJf1vZLdp8/edit" target="_blank" rel="noreferrer">Open source discussion deck ↗</a> Project-specific Tasking Manager instructions take precedence.</p>
+        </div>
       </dialog>
+      <button type="button" class="tutorial-info" id="tutorial-info" aria-label="Open labeling tutorial" title="Open labeling tutorial">i</button>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

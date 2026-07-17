@@ -58,6 +58,12 @@ tasks and updated in the editor and project instructions together.
 The editor should show a clear validation error before upload. It should not silently
 discard a mapper’s geometry.
 
+For approximately circular fields, choose **Circle** in the shape selector and drag
+from the field center to its edge. The editor converts the result to a regular
+polygon before applying the same area, edge, boundary, and overlap checks. Use
+Polygon mode when the field is not genuinely circular or has a meaningful irregular
+edge.
+
 ## Editing safeguards
 
 - While drawing, use **Undo point** or `⌘/Ctrl+Z` to remove the most recent point.
@@ -77,6 +83,12 @@ discard a mapper’s geometry.
   such as unclear boundary, conflicting time windows, natural regrowth, or an
   imagery problem. This is review metadata for the annotation workflow, not an
   OSM tag and not a substitute for HOT Tasking Manager validation.
+- The Sentinel-2 **Mosaic year** slider switches between annual EOX cloudless
+  mosaics. It is a year-level comparison, not a single acquisition date; dates may
+  vary within each mosaic.
+- Optional Overture roads, waterways, and buildings are reference geometry only.
+  They can help explain an edge or obstacle but must not be copied automatically or
+  treated as authoritative field boundaries.
 - The in-app guide summarizes the current WRI × ASU standards. Project-specific
   Tasking Manager instructions take precedence.
 
@@ -84,6 +96,11 @@ The editor also includes a condensed interactive decision workflow and a
 scrollable visual example deck. The examples are curated from the WRI × ASU
 annotation discussion slides and focus on boundary ambiguity, NIR, roads, fire
 and mining, natural regrowth, plantations, and splitting decisions.
+
+The first-run tutorial also includes three locally packaged WebM walkthroughs:
+many-vertex tracing, a Paraguay boundary annotation, and field splitting. It
+can be skipped, will not reopen automatically after the mapper chooses not to
+see it again, and remains available from the bottom-right information button.
 
 ## OSM tagging
 
