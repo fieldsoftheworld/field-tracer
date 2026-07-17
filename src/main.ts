@@ -27,7 +27,14 @@ import {
   toggleLayer,
   visibleReferenceLines,
 } from "./map";
-import { beginOsmLogin, campaignId, completeOsmLogin, type OsmSession, uploadFieldsToOsm } from "./osm";
+import {
+  beginOsmLogin,
+  campaignId,
+  completeOsmLogin,
+  isOauthPopupCallback,
+  type OsmSession,
+  uploadFieldsToOsm,
+} from "./osm";
 import { trainingCategories, trainingExamples, trainingVideos } from "./training";
 import type { FieldCollection, TaskContext } from "./types";
 import "./styles.css";
@@ -79,17 +86,8 @@ let uploadedChangesetUrl: string | undefined;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-const oauthCallback = new URLSearchParams(window.location.search);
-const isOauthPopup = Boolean(
-  window.opener && window.opener !== window && (oauthCallback.has("code") || oauthCallback.has("error")),
-);
-if (isOauthPopup) {
-  window.opener.postMessage(
-    { type: "field-tracer-osm-callback", search: window.location.search },
-    window.location.origin,
-  );
-  window.close();
-}
+const isOauthPopup = isOauthPopupCallback(window.name, window.location.search);
+const osmLoginChannel = new BroadcastChannel("field-tracer-osm-login");
 
 const map = createMap("map", task, {
   onMapClick: (event) => {
@@ -913,34 +911,55 @@ updateEditingControls();
 updateSummary();
 void planetKeyPresent;
 
+function acceptOsmSession(session: OsmSession): void {
+  osmSession = session;
+  osmConnected = true;
+  $("session-copy").textContent = "OSM session ready · field upload enabled";
+  $("osm-login").textContent = "Connected to OpenStreetMap ✓";
+  $("osm-login").classList.add("is-connected");
+  updateSummary();
+}
+
+async function finishOauthPopup(): Promise<void> {
+  try {
+    const session = await completeOsmLogin();
+    if (session) osmLoginChannel.postMessage({ type: "field-tracer-osm-session", session });
+  } catch (error) {
+    osmLoginChannel.postMessage({
+      type: "field-tracer-osm-error",
+      message: error instanceof Error ? error.message : "Could not complete OSM login",
+    });
+  }
+  window.close();
+}
+
+osmLoginChannel.addEventListener(
+  "message",
+  (event: MessageEvent<{ type?: string; session?: OsmSession; message?: string }>) => {
+    if (event.data.type === "field-tracer-osm-session" && event.data.session) acceptOsmSession(event.data.session);
+    if (event.data.type === "field-tracer-osm-error" && event.data.message) toast(event.data.message);
+  },
+);
+
 window.addEventListener("message", (event: MessageEvent<{ type?: string; search?: string }>) => {
   if (event.origin !== window.location.origin || event.data.type !== "field-tracer-osm-callback" || !event.data.search)
     return;
   void completeOsmLogin(event.data.search)
     .then((session) => {
-      if (!session) return;
-      osmSession = session;
-      osmConnected = true;
-      $("session-copy").textContent = "OSM session ready · field upload enabled";
-      $("osm-login").textContent = "Connected to OpenStreetMap ✓";
-      $("osm-login").classList.add("is-connected");
-      updateSummary();
+      if (session) acceptOsmSession(session);
     })
     .catch((error: unknown) => toast(error instanceof Error ? error.message : "Could not complete OSM login"));
 });
 
-if (!isOauthPopup)
+if (isOauthPopup) {
+  void finishOauthPopup();
+} else {
   void completeOsmLogin()
     .then((session) => {
-      if (!session) return;
-      osmSession = session;
-      osmConnected = true;
-      $("session-copy").textContent = "OSM session ready · field upload enabled";
-      $("osm-login").textContent = "Connected to OpenStreetMap ✓";
-      $("osm-login").classList.add("is-connected");
-      updateSummary();
+      if (session) acceptOsmSession(session);
     })
     .catch((error: unknown) => toast(error instanceof Error ? error.message : "Could not complete OSM login"));
+}
 void osmSession;
 
 window.addEventListener("keydown", (event) => {

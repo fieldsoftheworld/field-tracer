@@ -10,6 +10,11 @@ export type CampaignUploadContext = {
 };
 export type OsmUploadResult = { changesetId: string; changesetUrl: string };
 
+export function isOauthPopupCallback(windowName: string, search: string): boolean {
+  const callback = new URLSearchParams(search);
+  return windowName === "field-tracer-osm-login" && (callback.has("code") || callback.has("error"));
+}
+
 function apiBase(): string {
   return import.meta.env.VITE_OSM_API_BASE === "production" ? OSM_PROD : OSM_DEV;
 }

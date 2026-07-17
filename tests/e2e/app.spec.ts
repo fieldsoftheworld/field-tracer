@@ -50,6 +50,7 @@ test.describe("Field Tracer editor", () => {
     await page.getByRole("button", { name: "Draw rectangular field" }).click();
     await expect(page.getByText("Drag from one field corner to the opposite corner. Release to finish.")).toBeVisible();
 
+    await page.locator("details.image-tools > summary").click();
     await page.getByLabel("Blend a second mosaic year").check();
     await page.locator("#comparison-year").evaluate((element: HTMLInputElement) => {
       element.value = "2021";
